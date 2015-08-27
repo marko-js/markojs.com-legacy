@@ -22,10 +22,13 @@
 
 /* Tablet Screens */
 @media only screen and (max-width: 768px) {
-
+    .hero-bg {
+        position: relative;
+        top: -20px;
+    }
 
     .marketing-col {
-        width: 33.333%;
+        width: auto;
         float: none;
         padding: 1em;
     }
