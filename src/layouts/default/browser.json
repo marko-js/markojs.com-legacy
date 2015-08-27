@@ -1,6 +1,7 @@
 {
     "dependencies": [
         "src/components/app-header/browser.json",
+        "require: src/components/app-header",
         "./style.css"
     ]
 }

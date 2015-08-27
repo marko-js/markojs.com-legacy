@@ -170,19 +170,6 @@ footer a:hover {
         margin-right: 1.5em;
     }
 
-    main {
-        margin-right: 280px;
-    }
-
-    #sidebar {
-        top: 1.5em;
-        right: 0;
-        width: 250px;
-        position: absolute;
-        font-size: 1em;
-    }
-
-
     footer {
         padding: 0 2.5em 2em 2.5em;
     }
@@ -235,7 +222,6 @@ footer a:hover {
 /* Tiny Screens */
 @media only screen and (max-width: 670px) {
 
-
     #header h1 {
         font-size: 1.8em;
     }
@@ -246,8 +232,8 @@ footer a:hover {
 
     .container {
         width: auto;
-        margin-left: 10px;
-        margin-right: 10px;
+        margin-left: 15px;
+        margin-right: 15px;
     }
 
     main {
@@ -263,6 +249,18 @@ footer a:hover {
 
     main h1 {
         font-size: 1.4em;
+    }
+
+    main h2 {
+        font-size: 1.3em;
+    }
+
+    main h4 {
+        font-size: 1.2em;
+    }
+
+    main h5 {
+        font-size: 1em;
     }
 
 

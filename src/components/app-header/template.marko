@@ -1,28 +1,30 @@
-<header id="header">
+<header id="header" w-bind>
     <div id="logo">
         <a href="/" if="data.site.logo">
             <img src="/images/logo-dark-bg.png" width="80" height="67" alt="${data.site.title}"/>
         </a>
     </div>
 
-    <div class="container">    
-        <nav role="navigation" id="nav">
-            <ul class="main-navigation">
-                <li for="navLink in data.site.navLinks">
-                    <a href="${navLink.url}" class="{?navLink.name === data.activeSection;active}">
-                        ${navLink.title}
-                    </a>
-                </li>
-                <li>
-                    <form action="https://google.com/search" method="get" class="search-form">
-                        <fieldset role="search">
-                            <input type="hidden" name="q" value="site:${data.site.searchUrl || data.site.url}">
-                            <input type="text" name="q" results="0" placeholder="Search" class="search-input">
-                        </fieldset>
-                    </form>
-                </li>
-            </ul>
-        </nav>
-    </div>
+    <nav role="navigation" id="nav" class="mobile-hidden">
+        <ul class="main-navigation">
+            <li for="navLink in data.site.navLinks">
+                <a href="${navLink.url}" class="{?navLink.name === data.activeSection;active}">
+                    ${navLink.title}
+                </a>
+            </li>
+            <li>
+                <form action="https://google.com/search" method="get" class="search-form">
+                    <fieldset role="search">
+                        <input type="hidden" name="q" value="site:${data.site.searchUrl || data.site.url}">
+                        <input type="text" name="q" results="0" placeholder="Search" class="search-input" size="15">
+                    </fieldset>
+                </form>
+            </li>
+        </ul>
+        <div id="mobileMenu" w-onClick="handleToggleMenuClick">
+            MENU <div class="menu-icon"></div>
+        </div>
+    </nav>
+
     <div style="clear: both"/>
 </header>
