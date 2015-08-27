@@ -17,7 +17,7 @@ var tocRegExp = /^.*\{TOC\}.*$/im;
 
 exports.render = function renderMarkdown(markdown) {
 
-    markdown = markdown.replace(/http:\/\/markojs\.com\//g, '/);
+    markdown = markdown.replace(/http:\/\/markojs\.com\//g, '/');
 
     var markedRenderer = new marked.Renderer();
     markedRenderer.table = function(header, body) {
