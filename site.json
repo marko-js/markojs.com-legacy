@@ -1,0 +1,74 @@
+{
+    "title": "Marko",
+    "subtitle": "Template engine and UI component layer.",
+    "shortBio": "markdown:./short-bio.md",
+    "description": "",
+    "author": "psi",
+    "logo": "/images/logo-dark-bg.jpg",
+    "authors": {
+        "psi": {
+            "name": "Patrick Steele-Idem",
+            "email": "pnidem@gmail.com",
+            "twitterHandle": "psteeleidem"
+        }
+    },
+    "navLinks": [
+        {
+            "title": "Home",
+            "url": "/",
+            "name": "home"
+        },
+        {
+            "title": "Docs",
+            "url": "/docs/",
+            "name": "docs"
+        },
+        {
+            "title": "Community",
+            "url": "/community/",
+            "name": "community"
+        },
+        {
+            "title": "Blog",
+            "url": "/blog/",
+            "name": "blog"
+        },
+        {
+            "title": "Github",
+            "url": "/github/",
+            "name": "github"
+        }
+    ],
+    "sidebarLinks": [
+        {
+            "url": "https://github.com/marko-js/marko",
+            "className": "fa fa-github fa-2x"
+        },
+        {
+            "url": "https://twitter.com/MarkoDevTeam",
+            "className": "fa fa-twitter fa-2x"
+        },
+        {
+            "url": "https://www.npmjs.com/package/marko",
+            "image": "/images/npm-logo.png"
+        }
+    ],
+    "projects": [
+        {
+            "title": "Marko",
+            "url": "https://github.com/marko-js/marko"
+        },
+        {
+            "title": "Marko Widgets",
+            "url": "https://github.com/marko-js/marko-widgets"
+        }
+    ],
+    "disqusShortname": "psteeleidem",
+    "googleAnalyticsTrackingID": "UA-50307227-1",
+    "googleAnalyticsDomain": "markojs.com",
+    "copyright": "© 2015 eBay, Inc",
+    "baseUrl": "/",
+    "url": "http://markojs.com/",
+    "searchUrl": "markojs.com",
+    "feedImage": null
+}

@@ -1,0 +1,14 @@
+<var name="site" value="data.site"/>
+
+<layout-use template="src/layouts/default/template.marko" site="${site}" active-section="blog">
+    <layout-put into="title">$data.title | ${site.title}</layout-put>
+    <layout-put into="body">
+        <div class="container">
+
+            <main class="main">
+                <layout-placeholder name="body"/>
+            </main>
+        </div>
+
+    </layout-put>
+</layout-use>

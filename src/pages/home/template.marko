@@ -1,0 +1,49 @@
+<lasso-page package-path="./browser.json" />
+
+<var name="site" value="data.site"/>
+
+<layout-use template="src/layouts/default/template.marko" site="${site}" active-section="home">
+    <layout-put into="title">Marko - Template engine + UI Components</layout-put>
+    <layout-put into="body">
+        <div class="hero-bg">
+            <div class="container">
+                <div class="hero">
+                    <img src="/images/logo-dark-bg.png" width="150" height="125" alt="Marko"/>
+                    <h2>
+                        A high performance templating engine and UI component layer.
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="container">
+            <main>
+                <section class="marketing">
+                    <div class="marketing-col">
+                        <h3>HTML templating</h3>
+                        <p>
+                            Marko is a fast and lightweight HTML-based templating engine that compiles
+                            templates to Node.js-compatible JavaScript modules and supports streaming, async rendering
+                            and custom tags.
+                        </p>
+                    </div>
+                    <div class="marketing-col">
+                        <h3>UI component layer</h3>
+                        <p>
+                            Marko Widgets is lightweight UI component layer on top of Marko.
+                            It offers advanced features like DOM-diffing, stateful widgets,
+                            declarative event binding and efficient event delegation.
+                        </p>
+                    </div>
+                    <div class="marketing-col">
+                        <h3>Modern web apps</h3>
+                        <p>
+                            Designed for Node.js and the browser to support
+                            universal JavaScript and universal UI components. Create lightning fast webapps
+                            without compromising developer productivity.
+                        </p>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </layout-put>
+</layout-use>

@@ -1,0 +1,16 @@
+.app-codemirror {
+    border: 1px solid #eee;
+}
+
+.app-codemirror-auto-resize .CodeMirror {
+    height: auto;
+}
+
+.app-codemirror-auto-resize .CodeMirror-scroll {
+    overflow-y: hidden;
+    overflow-x: auto;
+}
+
+.CodeMirror pre {
+    line-height: 1.25;
+}

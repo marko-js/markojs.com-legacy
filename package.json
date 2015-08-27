@@ -1,0 +1,45 @@
+{
+  "name": "markojs.com",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "dependencies": {
+    "app-module-path": "^1.0.4",
+    "async": "^1.4.2",
+    "browser-refresh-taglib": "^1.0.3",
+    "change-case": "^2.3.0",
+    "codemirror": "^5.6.0",
+    "express": "^4.13.3",
+    "feed": "^0.2.6",
+    "front-matter": "^1.0.0",
+    "highlight.js": "^8.7.0",
+    "html": "0.0.10",
+    "jquery": "^2.1.4",
+    "lasso": "^1.10.2",
+    "lasso-marko": "^2.0.4",
+    "marked": "^0.3.5",
+    "marko": "^2.7.13",
+    "marko-widgets": "^4.3.2",
+    "mkdirp": "^0.5.1",
+    "moment": "^2.10.6",
+    "native-promise-only": "^0.8.1",
+    "raptor-polyfill": "^1.0.2",
+    "raptor-util": "^1.0.10",
+    "serve-static": "^1.10.0",
+    "shortstop": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node server.js",
+    "build": "./build.sh",
+    "preview": "./preview.sh",
+    "publish": "./publish.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marko-js/markojs.com.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "private": true
+}

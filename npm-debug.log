@@ -1,0 +1,28 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/Users/psteeleidem/.nvm/v0.10.35/bin/node',
+1 verbose cli   '/Users/psteeleidem/.nvm/v0.10.35/bin/npm',
+1 verbose cli   'run',
+1 verbose cli   'preview' ]
+2 info using npm@1.4.28
+3 info using node@v0.10.35
+4 verbose run-script [ 'preview' ]
+5 info preview psteeleidem.com@1.0.0
+6 verbose unsafe-perm in lifecycle true
+7 info psteeleidem.com@1.0.0 Failed to exec preview script
+8 error psteeleidem.com@1.0.0 preview: `./preview.sh`
+8 error Exit status 1
+9 error Failed at the psteeleidem.com@1.0.0 preview script.
+9 error This is most likely a problem with the psteeleidem.com package,
+9 error not with npm itself.
+9 error Tell the author that this fails on your system:
+9 error     ./preview.sh
+9 error You can get their info via:
+9 error     npm owner ls psteeleidem.com
+9 error There is likely additional logging output above.
+10 error System Darwin 14.4.0
+11 error command "/Users/psteeleidem/.nvm/v0.10.35/bin/node" "/Users/psteeleidem/.nvm/v0.10.35/bin/npm" "run" "preview"
+12 error cwd /Users/psteeleidem/development/bitbucket/patrick-steele-idem/psteeleidem.com
+13 error node -v v0.10.35
+14 error npm -v 1.4.28
+15 error code ELIFECYCLE
+16 verbose exit [ 1, true ]

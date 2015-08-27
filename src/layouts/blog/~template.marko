@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+    <head>
+
+        <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+        <title>
+            <layout-placeholder name="title"/>
+        </title>
+        <link rel="alternate" type="application/rss+xml" title="RSS"
+              href="${data.site.feedUrl()}">
+
+        <meta name="description" content="${data.site.description}" />
+
+        <link rel="apple-touch-icon" sizes="57x57" href="/apple-icon-57x57.png">
+        <link rel="apple-touch-icon" sizes="60x60" href="/apple-icon-60x60.png">
+        <link rel="apple-touch-icon" sizes="72x72" href="/apple-icon-72x72.png">
+        <link rel="apple-touch-icon" sizes="76x76" href="/apple-icon-76x76.png">
+        <link rel="apple-touch-icon" sizes="114x114" href="/apple-icon-114x114.png">
+        <link rel="apple-touch-icon" sizes="120x120" href="/apple-icon-120x120.png">
+        <link rel="apple-touch-icon" sizes="144x144" href="/apple-icon-144x144.png">
+        <link rel="apple-touch-icon" sizes="152x152" href="/apple-icon-152x152.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon-180x180.png">
+        <link rel="icon" type="image/png" sizes="192x192"  href="/android-icon-192x192.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+        <link rel="manifest" href="/manifest.json">
+        <meta name="msapplication-TileColor" content="#ffffff">
+        <meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+        <meta name="theme-color" content="#ffffff">
+
+        <meta name="HandheldFriendly" content="True" />
+        <meta name="MobileOptimized" content="320" />
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <lasso-head/>
+    </head>
+    <body>
+        <div id="header-bg"></div>
+        <div id="nav-bg"></div>
+
+        <div id="content">
+            <header id="header">
+                <div id="titles">
+                    <h1>
+                        <a href="${data.site.indexUrl()}">
+                            ${data.site.title}
+                        </a>
+                    </h1>
+                    <h2>
+                        ${data.site.subtitle}
+                    </h2>
+                </div>
+            </header>
+
+            <app-nav site="data.site"/>
+
+            <main class="main">
+                <layout-placeholder name="body"/>
+            </main>
+
+            <aside id="sidebar">
+                <div id="logo">
+                    <a href="${data.site.url}" if="data.site.logo">
+                        <img src="${data.site.logo}" alt="${data.site.title}"/>
+                    </a>
+                </div>
+                <p class="bio">
+                    $!{data.site.shortBio}
+                </p>
+
+                <p class="links" if="notEmpty(data.site.sidebarLinks)">
+                    <a href="${link.url}" for="link in data.site.sidebarLinks; separator=' '">
+                        <i class="${link.className}" if="link.className"></i>
+                        <img src="${link.image}" else-if="link.image">
+                    </a>
+                </p>
+
+                <section>
+                    <h1>Project Links</h1>
+                    <ul if="notEmpty(data.site.projects)">
+                        <li for="project in data.site.projects">
+                            <a href="$project.url" target="_blank">$project.title</a>
+                        </li>
+                    </ul>
+                </section>
+                <section>
+                    <h1>Explore</h1>
+                    <ul>
+                        <li for="category in data.site.blog.getAllCategories()">
+                            <a href="${data.site.postCategoryUrl(category)}">$category.title ($category.postCount)</a>
+                        </li>
+                    </ul>
+                </section>
+            </aside>
+
+            <footer id="footer">
+                <section id="footer-message">
+                    &copy; ${data.site.copyrightDate} ${data.site.title}.
+                    All rights reserved.
+                </section>
+            </footer>
+        </div>
+
+        <lasso-body/>
+
+        <google-analytics tracking-id="${data.site.googleAnalyticsTrackingID}"
+            domain="${data.site.googleAnalyticsDomain}" />
+
+        <browser-refresh enabled="true"/>
+    </body>
+</html>

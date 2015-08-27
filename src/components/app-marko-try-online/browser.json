@@ -1,0 +1,9 @@
+{
+    "dependencies": [
+        "require: jquery",
+        "require-run: codemirror/mode/javascript/javascript",
+        "require-run: codemirror/mode/htmlmixed/htmlmixed",
+        "require: change-case",
+        "./test-taglib/browser.json"
+    ]
+}

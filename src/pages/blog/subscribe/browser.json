@@ -1,0 +1,8 @@
+{
+    "dependencies": [
+        "//cdn-images.mailchimp.com/embedcode/slim-081711.css",
+        "src/global-style/browser.json",
+        "src/layouts/default/browser.json",
+        "./style.css"
+    ]
+}

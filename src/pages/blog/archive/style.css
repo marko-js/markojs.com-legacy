@@ -1,0 +1,36 @@
+table.archive td {
+    padding-top: .5em;
+}
+
+td.archive-year {
+    width: 6em;
+    vertical-align: top;
+}
+
+.archive-year h1 {
+    color: #C0C0C0;
+    font-size: 1.8em;
+    position: absolute;
+    margin: 0;
+}
+
+.archive-date {
+    color: #C0C0C0;
+    font-size: .9em;
+    padding-right: 1em;
+}
+
+.archive-title {
+    font-size: 1.2em;
+}
+
+.year-separator td {
+    border-top: 1px dotted #c0c0c0;
+}
+
+@media only screen and (max-width: 767px) {
+    td.archive-year {
+        width: 4em;
+        vertical-align: top;
+    }
+}

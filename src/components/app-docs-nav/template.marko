@@ -1,0 +1,81 @@
+<var name="activeLink" value="data.activeLink"/>
+
+<def function="navLink(linkName, href, title)">
+    <li>
+        <a href="${href}" class="{?activeLink === linkName;active}">
+            ${title}
+        </a>
+    </li>
+</def>
+
+<aside class="docs-nav">
+    <section>
+        <h1>Marko</h1>
+        <ul>
+            <invoke function="navLink"
+                linkName="marko/overview"
+                href="/docs/"
+                title="Overview"/>
+
+            <invoke function="navLink"
+                linkName="marko/get-started"
+                href="/docs/marko/get-started/"
+                title="Get Started"/>
+
+            <invoke function="navLink"
+                linkName="marko/javascript-api"
+                href="/docs/marko/javascript-api/"
+                title="JavaScript API"/>
+
+            <invoke function="navLink"
+                linkName="marko/language-guide"
+                href="/docs/marko/language-guide/"
+                title="Language Guide"/>
+
+            <invoke function="navLink"
+                linkName="marko/custom-taglibs"
+                href="/docs/marko/custom-taglibs/"
+                title="Custom Taglibs"/>
+
+            <invoke function="navLink"
+                linkName="marko/faq"
+                href="/docs/marko/faq/"
+                title="FAQ"/>
+
+            <invoke function="navLink"
+                linkName="marko/additional-resources"
+                href="/docs/marko/additional-resources/"
+                title="Additional Resources"/>
+        </ul>
+    </section>
+    <section>
+        <h1>Marko Widgets</h1>
+        <ul>
+
+            <invoke function="navLink"
+                linkName="marko-widgets/overview"
+                href="/docs/marko-widgets/"
+                title="Overview"/>
+
+            <invoke function="navLink"
+                linkName="marko-widgets/get-started"
+                href="/docs/marko-widgets/get-started/"
+                title="Get Started"/>
+
+            <invoke function="navLink"
+                linkName="marko-widgets/javascript-api"
+                href="/docs/marko-widgets/javascript-api/"
+                title="JavaScript API"/>
+
+            <invoke function="navLink"
+                linkName="marko-widgets/faq"
+                href="/docs/marko-widgets/faq/"
+                title="FAQ"/>
+
+            <invoke function="navLink"
+                linkName="marko-widgets/additional-resources"
+                href="/docs/marko-widgets/additional-resources/"
+                title="Additional Resources"/>
+        </ul>
+    </section>
+</aside>

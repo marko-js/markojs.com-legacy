@@ -1,0 +1,7 @@
+<ul>
+    <li for="color in data.colors; status-var=loop">
+        ${loop.getIndex()+1}) $color
+        <if test="loop.isFirst()"> - FIRST</if>
+        <if test="loop.isLast()"> - LAST</if>
+    </li>
+</ul>

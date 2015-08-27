@@ -1,0 +1,23 @@
+<lasso-page package-path="./browser.json"/>
+
+<var name="site" value="data.site"/>
+<var name="util" value="data.util"/>
+
+<layout-use template="src/layouts/blog/template.marko" site="${data.site}">
+    <layout-put into="title">${data.site.title}</layout-put>
+    <layout-put into="body">
+        <div class="container">
+            <h1>
+                Recent Posts
+            </h1>
+            <section class="post box" for="post in data.posts">
+                <h3 class="post-title">
+                    <a href="${site.postUrl(post)}">${post.title}</a> <span class="separator">&middot;</span>
+                    <span class="date">
+                    ${util.formatDate(post.date)}
+                    </span>
+                </h3>
+            </section>
+        </div>
+    </layout-put>
+</layout-use>

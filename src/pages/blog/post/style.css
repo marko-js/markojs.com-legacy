@@ -1,0 +1,39 @@
+.draft {
+    background-color: #fcf8e3;
+    color: #8a6d3b;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #faebcc;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 1.4em;
+    margin-top: 1em;
+}
+
+.sharing {
+    margin-top: 1em;
+}
+
+#main {
+    margin-right: 0;
+}
+
+#sidebar {
+    width: auto;
+    position: static;
+}
+
+
+footer {
+    padding: 0 2.5em 2em 2.5em;
+}
+
+
+
+@media only screen and (min-width: 768px) {
+    #content {
+        width: 720px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}

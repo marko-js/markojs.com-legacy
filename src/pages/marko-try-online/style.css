@@ -1,0 +1,46 @@
+header {
+    padding-top: 60px;
+}
+
+
+.navbar {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    font-size: 16px;
+    background-color: #000;
+    height: 40px;
+    line-height: 40px;
+    vertical-align: middle;
+    z-index: 100;
+    -webkit-box-shadow: 0px 3px 13px 0px rgba(0,0,0,0.75);
+    -moz-box-shadow: 0px 3px 13px 0px rgba(0,0,0,0.75);
+    box-shadow: 0px 3px 13px 0px rgba(0,0,0,0.75);
+
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.navbar A, .navbar A:hover {
+    text-decoration: none;
+}
+
+.navbar, .navbar A {
+    color: #fbaf31;
+}
+.navbar A {
+    color: #fbaf31;
+    /* text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+    color: #ffb376;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5); */
+    font-weight: normal;
+    text-decoration: underline;
+}
+
+.navbar .container {
+    margin-left: 10px;
+    margin-right: 10px;
+    width: auto;
+    position: relative;
+}

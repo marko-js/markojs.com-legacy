@@ -1,0 +1,21 @@
+.hero-bg {
+    background-color: #353534;
+}
+
+.hero {
+    text-align: center;
+    padding-top: 3em;
+    padding-bottom: 3em;
+}
+
+.hero h2 {
+    color: #fff;
+    font-size: 1.4em;
+    padding-bottom: 0;
+}
+
+.marketing-col {
+    width: 33.333%;
+    float: left;
+    padding: 1em;
+}

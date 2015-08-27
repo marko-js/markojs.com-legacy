@@ -1,0 +1,21 @@
+.errors {
+    width: 100%;
+    overflow-x: auto;
+    background-color: #FFFFCC;
+}
+.errors .error {
+    border-bottom: 1px solid #EEEEEE;
+    color: #660000;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.errors .message {
+    padding-left: 25px;
+}
+
+.errors .icon {
+    margin-left: 5px;
+    float: left;
+    color: #CC0000;
+}

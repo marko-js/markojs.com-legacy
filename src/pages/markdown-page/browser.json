@@ -1,0 +1,6 @@
+{
+    "dependencies": [
+        "src/global-style/browser.json",
+        "src/layouts/default/browser.json"
+    ]
+}

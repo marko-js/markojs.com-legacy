@@ -1,0 +1,13 @@
+<img src="foo.png" alt="${data.title}">
+
+<div class="{?data.active;tab-active}">
+    Hello
+</div>
+
+<div class="{?data.active !== true;tab-inactive}">
+    Hello
+</div>
+
+<input type="checkbox"
+    checked="${data.checked}"
+    disabled="${data.disabled}">

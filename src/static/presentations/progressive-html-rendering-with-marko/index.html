@@ -1,0 +1,293 @@
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Rediscovering Progressive HTML Rendering with Marko and Node.js</title>
+        <link rel="stylesheet" href="../../reveal.js/css/reveal.css">
+        <link rel="stylesheet" href="../../reveal.js/css/theme/default.css" id="theme">
+        <!-- For syntax highlighting -->
+        <link rel="stylesheet" href="../../reveal.js/lib/css/zenburn.css">
+        <script>
+        if (document.location.toString().indexOf('file://') == -1) {
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+          (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+          m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+          })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+          ga('create', 'UA-50307227-1', 'psteeleidem.com');
+          ga('send', 'pageview');
+
+        }
+        </script>
+    </head>
+    <body>
+        <div class="reveal">
+            <div class="slides"><section   data-markdown><script type="text/template"><style>
+h1, h2, h3, h4, h5, h6 {
+    text-transform: none !important;
+}
+
+.bad {
+    text-shadow: 0 0 10px red;
+}
+
+.good {
+    text-shadow: 0 0 10px green;
+}
+
+.emphasis {
+    text-shadow: 0 0 10px green;
+    color: #00FF00;
+}
+</style>
+
+## _Rediscovering_
+
+## Progressive HTML Rendering
+
+<br>
+
+Patrick Steele-Idem
+
+<br>
+
+November 7, 2014
+</script></section><section   data-markdown><script type="text/template">
+# About Me
+
+- Senior Platform Architect at eBay
+- Node.js, JavaScript and open source enthusiast
+- Author of [RaptorJS](http://raptorjs.org/)
+- Twitter: [@psteeleidem](https://twitter.com/psteeleidem)
+- Github: [github.com/patrick-steele-idem](https://github.com/patrick-steele-idem)
+</script></section><section   data-markdown><script type="text/template">
+## What is Progressive
+
+## HTML Rendering?
+
+Progressive HTML rendering involves flushing
+
+out web pages in <span class="emphasis">multiple chunks</span>.
+</script></section><section   data-markdown><script type="text/template">
+# Why?
+
+Using multiple content flushes improves both
+
+the <span class="emphasis">real</span> and the <span class="emphasis">perceived</span> performance.
+</script></section><section   data-markdown><script type="text/template">
+## <span class="bad">Without</span> Progressive Rendering
+
+![](./Marko-Diagrams/Slide1.jpg)
+</script></section><section   data-markdown><script type="text/template">
+## <span class="good">With</span> Progressive Rendering
+
+![](./Marko-Diagrams/Slide2.jpg)
+</script></section><section   data-markdown><script type="text/template">
+## Express.js views are <span class="bad">not</span> friendly to
+
+## Progressive HTML Rendering
+
+## ☹
+
+Express renders the entire web page in memory before
+
+sending one single byte to the browser.
+</script></section><section   data-markdown><script type="text/template">
+# There is a solution!
+
+## What you will need:
+
+- A <span class="emphasis">streaming</span> templating language
+- An <span class="emphasis">asynchronous</span> templating language
+- A templating language that supports <span class="emphasis">flushing</span>
+- Access to the output <span class="emphasis">response stream</span>
+</script></section><section   data-markdown><script type="text/template">
+# → Marko ←
+
+Marko is an extensible, streaming, asynchronous, high performance, HTML-based templating language that can be used in Node.js or in the browser.
+
+[github.com/raptorjs/marko](https://github.com/raptorjs/marko)
+
+![eBay Open Source](ebay.png)
+</script></section><section   data-markdown><script type="text/template">
+# Marko Syntax
+
+![Marko Syntax](marko-syntax.png)
+</script></section><section   data-markdown><script type="text/template">
+### Don't wait for back-end data.
+
+### <span class="emphasis">Immediately</span> render the template!
+</script></section><section   data-markdown><script type="text/template">
+# <span class="bad">Push</span> vs <span class="good">Pull</span>
+
+
+- __Push:__ Controller pushes data to template
+- __Pull:__ Template requests data from controller
+</script></section><section   data-markdown><script type="text/template">
+# <span class="bad">Push</span> Data
+
+## (the old way)
+
+- Make service calls
+- Wait for _all_ service calls to complete
+- Build view model
+- Start rendering template
+</script></section><section   data-markdown><script type="text/template">
+## Sample Code: <span class="bad">Push</span>
+
+__controller.js__
+
+```javascript
+var userService = require('user-service');
+
+module.exports = function(req, res) {
+    var userid = req.query.userid;
+
+    userService.getUserInfo(userid, function(err, userInfo) {
+        res.render(
+            'user',
+            {
+                userInfo: userInfo
+            });
+    });
+}
+```
+</script></section><section   data-markdown><script type="text/template">
+## Sample Code: <span class="bad">Push</span>
+
+__template.html__
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>User Info</title>
+</head>
+<body>
+    Hello {{userInfo.firstName}} {{userInfo.lastName}}!
+</body>
+</html>
+```
+</script></section><section   data-markdown><script type="text/template">
+# <span class="good">Pull</span> Data
+
+## (the new way)
+
+- Build view model*
+- Starting rendering template
+
+<br>
+
+*View model will contain async data
+
+providers (as <span class="emphasis">functions</span> or <span class="emphasis">promises</span>)!
+</script></section><section   data-markdown><script type="text/template">
+## Sample Code: <span class="good">Pull</span>
+
+__controller.js__
+
+```javascript
+var userService = require('user-service');
+var template = require('marko').load('template.marko');
+
+module.exports = function(req, res) {
+    var userid = req.query.userid;
+
+    template.render({
+            userInfoProvider: function(callback) {
+                userService.getUserInfo(userid, callback);
+            }
+        },
+        res);
+}
+```
+</script></section><section   data-markdown><script type="text/template">
+## Sample Code: <span class="good">Pull</span>
+
+__template.marko__
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>User Info</title>
+</head>
+<body>
+    <async-fragment data-provider="data.userInfoProvider" var="userInfo">
+        Hello ${userInfo.firstName} ${userInfo.lastName}!
+    </async-fragment>
+</body>
+</html>
+```
+</script></section><section   data-markdown><script type="text/template">
+We can do better...
+
+## <span class="good">Out-of-Order Flushing</span>
+
+- Flush each fragment as soon as it finishes
+- Use client-side Javascript to reorder<br>async fragments in the DOM*
+
+<br>
+
+_*Caveat: Requires JavaScript-enabled browser_
+</script></section><section   data-markdown><script type="text/template">
+## Enable Out-of-Order Flushing
+
+```html
+<body>
+    <main>
+        <async-fragment data-provider="..." var="..." client-reorder>
+            ...
+        </async-fragment>
+    </main>
+    <footer>
+        <async-fragment data-provider="..." var="..." client-reorder>
+            ...
+        </async-fragment>
+    </footer>
+
+    <!-- Async fragments will be rendered here (hidden): -->
+    <async-fragments/>
+</body>
+```
+</script></section><section   data-markdown><script type="text/template">
+## See it in action
+
+<a href="https://marko-progressive-rendering.herokuapp.com/" target="_blank">Click here for Live Demo</a>
+</script></section><section   data-markdown><script type="text/template">
+# Thanks!
+
+- RaptorJS: [raptorjs.org](http://raptorjs.org/)
+- Marko: [github.com/raptorjs/marko](https://github.com/raptorjs/marko)
+- Twitter: [@psteeleidem](https://twitter.com/psteeleidem)
+- Github: [github.com/patrick-steele-idem](https://github.com/patrick-steele-idem)
+
+<br>
+
+P.S. Please star projects on Github!</script></section></div>
+        </div>
+        <script src="../../reveal.js/lib/js/head.min.js"></script>
+        <script src="../../reveal.js/js/reveal.js"></script>
+        <script>
+            Reveal.initialize({
+                controls: true,
+                progress: true,
+                history: true,
+                center: true,
+                theme: Reveal.getQueryHash().theme,
+                transition: Reveal.getQueryHash().transition || 'default',
+                // Optional libraries used to extend on reveal.js
+                dependencies: [
+                    { src: '../../reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+                    { src: '../../reveal.js/plugin/markdown/marked.js', condition: function() { return !!document.querySelector('[data-markdown]'); } },
+                    { src: '../../reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector('[data-markdown]'); } },
+                    { src: '../../reveal.js/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+                    { src: '../../reveal.js/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+                ]
+            });
+        </script>
+    </body>
+</html>
