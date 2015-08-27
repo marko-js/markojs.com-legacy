@@ -72,7 +72,7 @@
     list-style-type: none;
     text-align: center;
     max-height: 300px;
-    transition: max-height 1s;
+    transition: max-height 0.5s;
 }
 
 #nav ul li {

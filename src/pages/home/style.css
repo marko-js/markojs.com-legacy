@@ -14,13 +14,18 @@
     padding-bottom: 0;
 }
 
-
+.marketing-col {
+    width: 33.333%;
+    float: left;
+    padding: 1em;
+}
 
 /* Tablet Screens */
 @media only screen and (max-width: 768px) {
 
 
     .marketing-col {
+        width: 33.333%;
         float: none;
         padding: 1em;
     }
