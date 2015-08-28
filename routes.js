@@ -1,5 +1,23 @@
 var siteLoader = require('./src/util/site-loader');
 var nodePath = require('path');
+var fs = require('fs');
+
+var docsDirs = {
+    'marko': nodePath.join(nodePath.dirname(require.resolve('marko/README.md')), 'docs'),
+    'marko-widgets': nodePath.join(nodePath.dirname(require.resolve('marko-widgets/README.md')), 'docs')
+};
+
+function checkDocs() {
+    Object.keys(docsDirs).forEach(function(project) {
+        var dir = docsDirs[project];
+
+        if (!fs.existsSync(dir)) {
+            throw new Error('Docs dir not found at path "' + nodePath.relative(process.cwd(), dir) + '". Did you for get to run `npm link ' + project + '`');
+        }
+    });
+}
+
+checkDocs();
 
 exports.loadRoutes = function() {
     return siteLoader.loadSite(__dirname)
@@ -30,6 +48,7 @@ exports.loadRoutes = function() {
             }
 
             function addDocsPage(path, project, name) {
+
                 routes.push({
                     handler: require('./src/pages/docs-page'),
                     path: path,
@@ -38,7 +57,7 @@ exports.loadRoutes = function() {
                         site: site,
                         project: project,
                         name: name,
-                        markdownFile: nodePath.join(__dirname, '../' + project + '/docs/' + name + '.md')
+                        markdownFile: nodePath.join(docsDirs[project], name + '.md')
                     }
                 });
             }

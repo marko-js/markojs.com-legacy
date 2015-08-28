@@ -1,3 +1,6 @@
+#!/bin/bash
+set -o errexit # Exit on error
+
 TARGET_DIR="../marko-js.github.io"
 TARGET_DIR=`(cd $TARGET_DIR; pwd)`
 
@@ -6,7 +9,7 @@ git commit -a -m "Updated blog"
 git push origin master
 
 # Rebuild the site
-NODE_ENV=production npm run build
+NODE_ENV=production npm run build --silent
 
 rm -rf $TARGET_DIR/*
 cp -r build/ $TARGET_DIR/
