@@ -29,11 +29,6 @@
             "name": "community"
         },
         {
-            "title": "Blog",
-            "url": "/blog/",
-            "name": "blog"
-        },
-        {
             "title": "Github",
             "url": "/github/",
             "name": "github"
