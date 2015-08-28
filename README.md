@@ -44,7 +44,7 @@ cd ../
 git clone https://github.com/marko-js/marko-js.github.io
 ```
 
-Then run the `pm run publish` command which will do a build and copy the files over to `../marko-js.github.io`
+Then run the `npm run publish` command which will do a build and copy the files over to `../marko-js.github.io` and then finally do a `git push origin master`.
 
 ```
 npm run publish
