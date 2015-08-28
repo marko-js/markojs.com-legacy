@@ -1,8 +1,6 @@
 {
     "dependencies": [
-        "require: src/components/app-codemirror",
-        "require-run: codemirror/mode/javascript/javascript",
-        "require-run: codemirror/mode/htmlmixed/htmlmixed",
-        "require: ./widget"
+        "src/components/app-try-marko/browser.json",
+        "./style.css"
     ]
 }

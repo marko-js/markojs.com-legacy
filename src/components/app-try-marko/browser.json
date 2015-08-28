@@ -1,9 +1,10 @@
 {
     "dependencies": [
         "require: jquery",
+        "require: ./",
+        "require: src/components/app-codemirror",
         "require-run: codemirror/mode/javascript/javascript",
         "require-run: codemirror/mode/htmlmixed/htmlmixed",
-        "require: change-case",
         "./test-taglib/browser.json"
     ]
 }

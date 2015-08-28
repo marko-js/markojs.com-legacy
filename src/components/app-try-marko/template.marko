@@ -1,0 +1,66 @@
+<div class="app-try-marko-inline{?data.inline; inline}" w-bind>
+    <layout-use template="./layout-default.marko">
+        <layout-put into="template">
+            <!-- Template -->
+
+            <!-- Category samples nav -->
+            <invoke function="data.templateNav.renderBody(out)" if="data.templateNav"/>
+
+            <app-codemirror mode="htmlmixed"
+                auto-resize="true"
+                theme="default"
+                code="${data.templateCode}"
+                w-onChange="handleTemplateEditorChange"
+                w-id="templateEditor"/>
+
+            <app-marko-try-online-errors w-id="templateErrors"/>
+        </layout-put>
+        <layout-put into="data">
+            <!-- Data -->
+
+            <app-codemirror mode="javascript"
+                theme="default"
+                auto-resize="true"
+                code="${data.dataCode}"
+                w-onChange="handleDataEditorChange"
+                w-id="dataEditor"/>
+
+            <app-marko-try-online-errors w-id="dataErrors"/>
+        </layout-put>
+        <layout-put into="options">
+            <!-- Options -->
+
+            <app-codemirror mode="javascript"
+                theme="default"
+                auto-resize="true"
+                w-onChange="handleOptionsEditorChange"
+                w-id="optionsEditor"/>
+
+            <app-marko-try-online-errors w-id="optionsErrors"/>
+        </layout-put>
+        <layout-put into="output">
+            <!-- HTML Output -->
+
+            <app-codemirror mode="htmlmixed"
+                auto-resize="true"
+                read-only="true"
+                auto-format="true"
+                theme="default"
+                code="${data.htmlCode}"
+                w-id="outputEditor" />
+
+            <div w-id="htmlViewer" class="mto-html-viewer" if="!data.inline"></div>
+        </layout-put>
+        <layout-put into="compiled">
+            <!-- Compiled -->
+
+            <app-codemirror mode="javascript"
+                auto-resize="true"
+                read-only="true"
+                theme="default"
+                code="${data.compiledCode}"
+                w-id="compiledEditor"/>
+        </layout-put>
+    </layout-use>
+    <div style="clear: both"/>
+</div>

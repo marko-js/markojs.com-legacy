@@ -15,6 +15,7 @@
     top: 0px;
     width: 200px;
     padding: 10px;
+    text-align: center;
 }
 
 .mto-btn {
@@ -77,63 +78,10 @@
     animation-name: slidein; */
 }
 
-.mto-tiles {
+.try-marko-container {
     position: absolute;
     left: 200px;
     right: 0px;
     top: 0px;
     bottom: 0px;
-}
-
-.mto-col-input {
-    position: absolute;
-    left: 0px;
-    width: 50%;
-}
-
-.mto-col-output {
-    position: absolute;
-    right: 0px;
-    width: 50%;
-    padding-left: 10px;
-}
-
-.mto-tile {
-}
-
-.mto-tile-template {
-    margin-bottom: 15px;
-}
-
-.mto-tile-data {
-
-}
-
-.mto-tile-mto-options {
-    display: none;
-}
-
-.mto-tile-output {
-    margin-bottom: 15px;
-}
-
-.mto-tile-compiled {
-
-}
-
-
-.mto-html-viewer {
-    border: 1px solid #c0c0c0;
-    padding: 3px;
-    margin-top: 5px;
-    background-color: #f7f7f7;
-}
-
-.raptorjs-logo-container {
-    text-align: center;
-    margin-top: 20px;
-}
-
-.raptorjs-logo {
-
 }

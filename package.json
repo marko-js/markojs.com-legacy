@@ -23,6 +23,7 @@
     "mkdirp": "^0.5.1",
     "moment": "^2.10.6",
     "native-promise-only": "^0.8.1",
+    "raptor-async": "^1.1.2",
     "raptor-polyfill": "^1.0.2",
     "raptor-util": "^1.0.10",
     "serve-static": "^1.10.0",

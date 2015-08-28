@@ -19,7 +19,8 @@ module.exports = require('marko-widgets').defineComponent({
             autoResize: input.autoResize,
             readOnly: input.readOnly === true,
             autoFormat: input.autoFormat === true,
-            theme: input.theme
+            theme: input.theme,
+            lineNumbers: false
         };
     },
 
@@ -35,9 +36,14 @@ module.exports = require('marko-widgets').defineComponent({
 
         this.mode = widgetConfig.mode;
 
+        var code = widgetConfig.code;
+
+        if (code && this.autoFormat) {
+            code = this.format(code);
+        }
 
         var codeMirrorConfig = {
-            value: widgetConfig.code || '',
+            value: code || '',
             mode: widgetConfig.mode,
             lineNumbers: widgetConfig.lineNumbers !== false,
             readOnly: widgetConfig.readOnly === true

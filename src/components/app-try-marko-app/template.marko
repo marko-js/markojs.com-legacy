@@ -1,0 +1,42 @@
+<div class="mto" w-bind>
+    <div class="mto-categories">
+        <button type="button"
+            class="mto-btn mto-category-btn"
+            data-cat-id="$category.id"
+            w-onClick="handleCategoryClick"
+            for="category in data.samples.categories">
+
+            $category.name
+
+        </button>
+
+        <a href="/">
+            <img src="/images/logo.png" width="100" height="100" alt="Marko"/>
+        </a>
+    </div>
+    <div class="try-marko-container">
+        <app-try-marko w-id="tryMarko">
+            <app-try-marko.template-nav>
+                <div class="mto-sample-navs" w-id="sampleNavs">
+
+                    <div class="mto-sample-nav"
+                        data-cat-id="${category.id}"
+                        for="category in data.samples.categories">
+
+                        <button type="button"
+                            data-sample-id="$sample.id"
+                            class="mto-btn mto-sample-btn"
+                            w-onClick="handleSampleButtonClick"
+                            for="sample in category.samples">
+
+                            $sample.name
+
+                        </button>
+
+                    </div>
+
+                </div>
+            </app-try-marko.template-nav>
+        </app-try-marko>
+    </div>
+</div>

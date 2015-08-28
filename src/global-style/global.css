@@ -29,10 +29,11 @@ html {
 }
 
 footer {
-    padding: 1em 0em 2.5em 0em;
+    padding: 2em 0em 2.5em 0em;
     font-size:0.8em;
     line-height: 1.5em;
     color: #888;
+    text-align: right;
 }
 article {
     border-bottom: 0.1em #eee solid;

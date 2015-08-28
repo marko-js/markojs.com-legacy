@@ -1,15 +1,9 @@
-<div class="try-marko-inline" w-bind>
-    <app-codemirror mode="javascript"
-        auto-resize="true"
-        w-onChange="handleDataChange"
-        w-id="dataEditor"
-        code=${data.dataCode}>
-    </app-codemirror>
+<div class="app-try-marko-inline">
+    <app-try-marko inline="true"
+        template-code="${data.templateCode}"
+        data-code="${data.dataCode}"
+        html-code="${data.htmlCode}"
+        compiled-code="${data.compiledCode}"/>
 
-    <app-codemirror mode="htmlmixed"
-        auto-resize="true"
-        w-onChange="handleTemplateChange"
-        w-id="templateEditor"
-        code=${data.templateCode}>
-    </app-codemirror>
+    <div style="clear: both"/>
 </div>

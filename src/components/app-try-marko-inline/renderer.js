@@ -15,9 +15,18 @@ module.exports = require('marko-widgets').defineRenderer({
         var templateFile = nodePath.join(dir, 'template.marko');
         var templateCode = fs.readFileSync(templateFile, { encoding: 'utf8' });
 
+        var template = require(templateFile);
+        var compiledFile = nodePath.join(dir, 'template.marko.js');
+        var compiledCode = fs.readFileSync(compiledFile, { encoding: 'utf8' });
+
+        var data = eval('(' + dataCode + ')');
+        var htmlCode = template.renderSync(data);
+
         return {
             dataCode: dataCode,
-            templateCode: templateCode
+            templateCode: templateCode,
+            compiledCode: compiledCode,
+            htmlCode: htmlCode
         };
     }
 });

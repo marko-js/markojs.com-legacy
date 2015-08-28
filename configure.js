@@ -38,5 +38,32 @@ lasso.configure({
     minify: isProduction,
 
     // Only fingerprint JS and CSS files in production builds
-    fingerprintsEnabled: isProduction
+    fingerprintsEnabled: isProduction,
+
+    bundles: [
+        {
+            name: "jquery",
+            dependencies: [
+                { "path": "require: jquery", "recurseInto": "all" }
+            ]
+        },
+        {
+            name: "marko",
+            dependencies: [
+                { "path": "require: marko", "recurseInto": "all" }
+            ]
+        },
+        {
+            name: "marko-widgets",
+            dependencies: [
+                { "path": "require: marko-widgets", "recurseInto": "all" }
+            ]
+        },
+        {
+            name: "marko-compiler",
+            dependencies: [
+                { "path": "require: marko/compiler", "recurseInto": "all" }
+            ]
+        }
+    ]
 });

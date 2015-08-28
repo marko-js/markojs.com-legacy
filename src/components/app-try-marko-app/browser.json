@@ -1,0 +1,6 @@
+{
+    "dependencies": [
+        "require: jquery",
+        "require: change-case"
+    ]
+}
