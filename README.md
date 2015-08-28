@@ -5,6 +5,7 @@ markojs.com source code
 
 ```
 git clone https://github.com/marko-js/markojs.com
+cd markojs.com
 npm install
 npm start
 ```
