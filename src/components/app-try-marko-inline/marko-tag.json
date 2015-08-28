@@ -1,0 +1,6 @@
+{
+    "@path": "string",
+    "import-var": {
+        "__dirname": "__dirname"
+    }
+}

@@ -20,8 +20,8 @@
     padding: 1em;
 }
 
-/* Tablet Screens */
-@media only screen and (max-width: 768px) {
+/* Tiny Screens */
+@media only screen and (max-width: 670px) {
     .hero-bg {
         position: relative;
         top: -20px;
