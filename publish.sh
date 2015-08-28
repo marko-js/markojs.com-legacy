@@ -4,9 +4,7 @@ set -o errexit # Exit on error
 TARGET_DIR="../marko-js.github.io"
 TARGET_DIR=`(cd $TARGET_DIR; pwd)`
 
-git add . --all
-git commit -a -m "Updated blog"
-git push origin master
+./push-all.sh
 
 # Rebuild the site
 NODE_ENV=production npm run build --silent
