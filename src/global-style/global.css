@@ -111,13 +111,13 @@ code {
     background: #f8f8f8;
 }
 pre {
-    word-break: break-all;
+    /*word-break: break-all;
     word-wrap: break-word;
     white-space: pre;
     white-space: -moz-pre-wrap;
     white-space: pre-wrap;
-    white-space: pre\9;
-
+    white-space: pre\9;*/
+    /*white-space: nowrap;*/
     background-color: #f8f8f8;
     border: 1px solid #ddd;
     line-height: 1.1em;
@@ -267,6 +267,14 @@ footer a:hover {
 
     footer {
         padding: 0 2.5em 2em 2.5em;
+    }
+
+    html, body {
+        font-size: 1em;
+    }
+
+    html, body, pre {
+        font-size: .9em;
     }
 }
 
