@@ -35,14 +35,17 @@ exports.loadRoutes = function() {
                 });
             }
 
-            function addMarkdownPage(path, markdownFile) {
+            function addMarkdownPage(path, markdownFile, options) {
+                options = options || {};
+
                 routes.push({
                     handler: require('./src/pages/markdown-page'),
                     path: path,
                     data: {
                         blog: blog,
                         site: site,
-                        markdownFile: markdownFile
+                        markdownFile: markdownFile,
+                        activeSection: options.activeSection
                     }
                 });
             }
@@ -63,8 +66,8 @@ exports.loadRoutes = function() {
             }
 
             // addPage('/docs', require('./src/pages/docs'));
-            addMarkdownPage('/community', require.resolve('./src/pages/community.md'));
-            addMarkdownPage('/github', require.resolve('./src/pages/github.md'));
+            addMarkdownPage('/community', require.resolve('./src/pages/community.md'), { activeSection: 'community' });
+            addMarkdownPage('/github', require.resolve('./src/pages/github.md'), { activeSection: 'github' });
 
             addDocsPage('/docs/', 'marko', 'overview');
             addDocsPage('/docs/marko/get-started', 'marko', 'get-started');

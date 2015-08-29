@@ -19,7 +19,8 @@ module.exports = function(input, out) {
         pageName: pageName,
         site: input.site,
         blog: input.blog,
-        html: markdownData.html
+        html: markdownData.html,
+        activeSection: input.activeSection
     };
 
     extend(templateData, markdownData.frontMatter);
