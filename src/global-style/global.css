@@ -269,12 +269,8 @@ footer a:hover {
         padding: 0 2.5em 2em 2.5em;
     }
 
-    html, body {
-        font-size: 1em;
-    }
-
     html, body, pre {
-        font-size: .9em;
+        font-size: 1em;
     }
 }
 
