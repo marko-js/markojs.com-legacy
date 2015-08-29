@@ -46,7 +46,6 @@
     position: relative;
     padding: 0;
     font-size: 1em;
-    x
     transition: transform 0.3s ease-in-out;
     -webkit-transition: -webkit-transform 0.3s ease-out;
 }
