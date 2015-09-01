@@ -4,5 +4,6 @@
     "@code": "string",
     "@read-only": "boolean",
     "@auto-format": "boolean",
-    "@theme": "string"
+    "@theme": "string",
+    "@fullscreen": "boolean"
 }

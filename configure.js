@@ -42,12 +42,6 @@ lasso.configure({
 
     bundles: [
         {
-            name: "jquery",
-            dependencies: [
-                { "path": "require: jquery", "recurseInto": "all" }
-            ]
-        },
-        {
             name: "marko",
             dependencies: [
                 { "path": "require: marko", "recurseInto": "all" }

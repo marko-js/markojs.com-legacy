@@ -14,3 +14,11 @@
 .CodeMirror pre {
     line-height: 1.25;
 }
+
+.app-codemirror.hidden {
+    display: none;
+}
+
+.app-codemirror.app-codemirror-fullscreen {
+    height: 100%;
+}

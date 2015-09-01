@@ -19,3 +19,7 @@
     float: left;
     color: #CC0000;
 }
+
+.errors.hidden {
+    display: none;
+}

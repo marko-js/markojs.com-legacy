@@ -90,8 +90,6 @@ module.exports = require('marko-widgets').defineComponent({
         };
 
         this.halt = false;
-
-        this.$htmlViewer = this.inline ? null : this.$("#htmlViewer");
     },
 
     setCode: function(options) {
@@ -99,11 +97,10 @@ module.exports = require('marko-widgets').defineComponent({
         var showOptions = options.showOptions === true;
 
         if (showOptions) {
-            this.$('#optionsContainer').show();
+            this.getWidget('optionsEditor').show();
         } else {
-            this.$('#optionsContainer').hide();
+            this.getWidget('optionsEditor').hide();
         }
-
 
         var template = options.template;
         var data = options.data;
@@ -181,7 +178,7 @@ module.exports = require('marko-widgets').defineComponent({
             this.loadedTemplate.render(viewModel, function(err, html) {
                 if (err) {
                     this.handleEditorException(self.getWidget('templateErrors'), err);
-                    self.$htmlViewer.html('');
+                    self.getEl('htmlViewer').innerHTML = '';
                     return;
                 }
 
@@ -200,7 +197,7 @@ module.exports = require('marko-widgets').defineComponent({
         if (this.inline) {
             return;
         }
-        this.$htmlViewer.html(code);
+        this.getEl('htmlViewer').innerHTML = code;
     },
 
     updateJSON: function(targetProp, modifiedProp, editor, errors) {

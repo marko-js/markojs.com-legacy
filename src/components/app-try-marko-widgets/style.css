@@ -1,0 +1,102 @@
+.data-ctr {
+    width: 50%;
+    float: left;
+}
+
+.template-ctr {
+    width: 50%;
+    float: left;
+}
+
+.mto-tiles {
+    position: absolute;
+    left: 200px;
+    right: 0px;
+    top: 0px;
+    bottom: 0px;
+}
+
+.input-col {
+    position: absolute;
+    left: 0px;
+    width: 50%;
+    top: 0px;
+    bottom: 10px;
+    overflow: auto;
+}
+
+.output-col {
+    position: absolute;
+    top: 0px;
+    left: 50%;
+    right: 10px;
+    bottom: 0px;
+}
+
+.top {
+    position: absolute;
+    top: 0px;
+    left: 10px;
+    height: 35%;
+    right: 0px;
+}
+
+.middle {
+    position: absolute;
+    top: 36%;
+    left: 10px;
+    height: 19%;
+    right: 0px;
+}
+
+.bottom {
+    position: absolute;
+    top: 55%;
+    left: 10px;
+    bottom: 0px;
+    right: 0px;
+    padding: 10px;
+}
+
+.mto-tile {
+}
+
+.mto-tile-javascript .CodeMirror-scroll {
+    height: 100%; overflow-y: auto; overflow-x: auto;
+}
+
+.mto-tile-javascript .CodeMirror {
+    height: 100%;
+}
+
+.mto-tile-javascript .code-ctr {
+    position: absolute;
+    top: 50px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+}
+
+.mto-tile-template {
+    margin-bottom: 15px;
+}
+
+.mto-tile-data {
+
+}
+
+.mto-tile-mto-input {
+
+}
+
+.mto-tile-output {
+    margin-bottom: 15px;
+}
+
+.mto-tile-compiled {
+
+}
+
+.app-try-marko-inline .cols-ctr {
+    position: relative;
+}

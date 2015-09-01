@@ -4,6 +4,8 @@
         "require: src/components/app-codemirror",
         "require-run: codemirror/mode/javascript/javascript",
         "require-run: codemirror/mode/htmlmixed/htmlmixed",
-        "./test-taglib/browser.json"
+        "require-run: codemirror/mode/css/css",
+        "marko-widgets/compiler.browser.json",
+        "require: src/components/app-tabs"
     ]
 }

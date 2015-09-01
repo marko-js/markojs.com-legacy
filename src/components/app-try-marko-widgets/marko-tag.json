@@ -1,0 +1,10 @@
+{
+    "@template-code": "string",
+    "@data-code": "string",
+    "@compiled-code": "string",
+    "@html-code": "string",
+    "@inline": "boolean",
+    "<template-nav>": {
+
+    }
+}

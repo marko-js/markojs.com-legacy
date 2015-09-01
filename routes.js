@@ -84,6 +84,7 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko-widgets/additional-resources', 'marko-widgets', 'additional-resources');
 
             addPage('/try-online', require('./src/pages/marko-try-online'));
+            addPage('/marko-widgets/try-online', require('./src/pages/marko-widgets-try-online'));
             addPage('/', require('./src/pages/home'));
 
             var blog = site.blog;

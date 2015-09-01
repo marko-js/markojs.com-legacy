@@ -1,0 +1,76 @@
+.app-tabs .tab {
+
+}
+
+.app-tabs ul.tab-nav {
+    padding-left: 0;
+    list-style: none;
+    margin-left: 10px;
+}
+
+.app-tabs ul.tab-nav > li {
+    float: left;
+}
+
+.app-tabs ul.tab-nav > li > a {
+    margin-right: 2px;
+    line-height: 1.42857143;
+    border: 1px solid #2073bc;
+    margin-left: 10px;
+    border-radius: 4px 4px 0 0;
+    padding-left: 1em;
+    padding-right: 1em;
+    vertical-align: middle;
+    display: inline-block;
+    margin-bottom: -1px;
+    background-color: #2073bc;
+    color: #ecf0f1;
+    position: relative;
+    z-index: 2;
+}
+
+.app-tabs ul.tab-nav > li:first-child > a {
+    margin-left: 0px;
+}
+
+.app-tabs .tab.active > a {
+    background-color: transparent;
+    border-bottom: 1px solid white;
+    color: inherit;
+}
+
+.app-tabs .tab-panes {
+    clear: both;
+
+}
+
+.app-tabs .tab-pane {
+    display: none;
+    border: 1px solid #2073bc;
+    padding: 1em;
+}
+
+.app-tabs .tab-pane.active {
+    display: block;
+}
+
+.app-tabs.full-screen ul.tab-nav > li > a {
+    line-height: 32px;
+}
+
+.app-tabs.full-screen .tab-pane {
+    position: absolute;
+    top: 33px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    overflow: auto;
+    z-index: 1;
+    display: block;
+    visibility: hidden;
+}
+
+
+.app-tabs.full-screen .tab-pane.active {
+    visibility: visible;
+}

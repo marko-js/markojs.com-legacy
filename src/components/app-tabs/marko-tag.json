@@ -1,0 +1,7 @@
+{
+    "@theme": "string",
+    "@full-screen": "boolean",
+    "@tabs <tab>[]": {
+        "@label": "string"
+    }
+}

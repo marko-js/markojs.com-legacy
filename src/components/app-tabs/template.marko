@@ -1,0 +1,20 @@
+<div class="app-tabs ${data.theme}{?data.fullScreen; full-screen}" w-bind>
+    <ul class="tab-nav">
+        <li  w-id="tab${loop.getIndex()}"
+            for="tab in data.tabs; status-var=loop"
+            class="tab{?tab.isActive; active}">
+
+            <a href="#"
+                data-tab-index="${tab.index}"
+                w-onClick="handleTabClick"
+                w-body="tab.label"/>
+        </li>
+    </ul>
+    <div style="clear: both"/>
+    <div class="tab-panes">
+        <div w-id="tabPane${loop.getIndex()}"
+            for="tab in data.tabs; status-var=loop"
+            class="tab-pane{?tab.isActive; active}"
+            w-body="tab.body"/>
+    </div>
+</div>

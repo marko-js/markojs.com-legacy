@@ -1,6 +1,9 @@
 require('codemirror/lib/codemirror.css');
 require('./style.css');
 
+var removeClass = require('dom-classes').remove;
+var addClass = require('dom-classes').add;
+
 var codeMirrorFactory = typeof window !== 'undefined' ? require('codemirror') : null;
 var html = require('html');
 
@@ -26,7 +29,8 @@ module.exports = require('marko-widgets').defineComponent({
 
     getTemplateData: function(state, input) {
         return {
-            autoResize: input.autoResize
+            autoResize: input.autoResize,
+            fullscreen: input.fullscreen === true
         };
     },
 
@@ -106,5 +110,13 @@ module.exports = require('marko-widgets').defineComponent({
 
         code = html.prettyPrint(code);
         return code;
+    },
+
+    show: function() {
+        removeClass(this.el, 'hidden');
+    },
+
+    hide: function() {
+        addClass(this.el, 'hidden');
     }
 });

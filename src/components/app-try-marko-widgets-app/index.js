@@ -5,11 +5,6 @@ var addClass = require('dom-classes').add;
 
 var samples = require('./samples-loader').load();
 
-if (typeof window !== 'undefined') {
-    window.testTemplate = require('./include-target.marko');
-    window.layoutTemplate = require('./layout-use-target.marko');
-}
-
 function getUniqueSampleName(category, sample) {
     var catName = category.name;
     var sampleName = sample.name;
@@ -139,14 +134,11 @@ module.exports = require('marko-widgets').defineComponent({
 
         addClass(this.getSampleButtonEl(this.currentSampleId), 'mto-btn-active');
 
-        var compilerOptions = sample.options;
-
-        this.getWidget('tryMarko').setCode({
-            template: sample.template,
-            data: sample.data,
-            options: sample.options,
-            autoFormat: sample.autoFormat === true,
-            compilerOptions: compilerOptions
+        this.getWidget('tryMarkoWidgets').setCode({
+            javaScript: sample.javaScriptCode,
+            template: sample.templateCode,
+            input: sample.inputCode,
+            css: sample.cssCode
         });
 
         if (this.changeHash !== false) {

@@ -1,5 +1,5 @@
 .mto {
-    position: relative;
+
 }
 
 .mto h2 {
@@ -55,6 +55,13 @@
     height: 2.2em;
     position: relative;
     overflow: hidden;
+}
+
+.mto-sample-navs {
+    margin-bottom: 5px;
+    height: 2.2em;
+    position: relative;
+    overflow: hidden;
     -webkit-transition: .4s ease-in-out;
     -moz-transition: .4s ease-in-out;
     -o-transition: .4s ease-in-out;
@@ -65,19 +72,6 @@
     height: 0em;
 }
 
-.mto-sample-nav {
-    position: absolute;
-    margin-top: 4px;
-    margin-left: 4px;
-    top: 100%;
-    -webkit-transition: .4s ease-in-out;
-    -moz-transition: .4s ease-in-out;
-    -o-transition: .4s ease-in-out;
-    transition: .4s ease-in-out;
-    visibility: hidden;
-    opacity: 0;
-}
-
 .mto-sample-nav-active {
     top: 0%;
     visibility: visible;
@@ -86,10 +80,18 @@
     animation-name: slidein; */
 }
 
-.try-marko-container {
+.right-col {
     position: absolute;
     left: 200px;
     right: 0px;
     top: 0px;
+    bottom: 0px;
+}
+
+.try-container {
+    position: absolute;
+    left: 0px;
+    right: 0px;
+    top: 2.2em;
     bottom: 0px;
 }

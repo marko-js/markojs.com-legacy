@@ -1,5 +1,10 @@
 var errorsTemplate = require('./errors-template.marko');
 
+var appendHtml = require('src/util/dom-util').appendHtml;
+
+var removeClass = require('dom-classes').remove;
+var addClass = require('dom-classes').add;
+
 require('./style.css');
 
 module.exports = require('marko-widgets').defineComponent({
@@ -10,13 +15,13 @@ module.exports = require('marko-widgets').defineComponent({
     },
 
     setErrors: function(errors) {
-        this.$().empty();
+        this.el.innerHTML = '';
 
         if (errors && errors.length) {
             this.addErrors(errors);
         } else {
             this._hasErrors = false;
-            this.$().hide();
+            addClass(this.el, 'hidden');
         }
     },
 
@@ -37,9 +42,8 @@ module.exports = require('marko-widgets').defineComponent({
                     errors: errors
                 });
 
-
-            this.$().append(html);
-            this.$().show();
+            appendHtml(this.el, html);
+            removeClass(this.el, 'hidden');
         }
     }
 });
