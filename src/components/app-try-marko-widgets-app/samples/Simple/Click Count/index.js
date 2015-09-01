@@ -39,7 +39,7 @@ module.exports = require('marko-widgets').defineComponent({
         var el = this.el;
         // "el" will be reference the raw HTML element that this
         // widget is bound to. You can do whatever you want with it...
-        el.style.color = 'red';
+        // el.style.color = 'red';
     },
 
     /**
