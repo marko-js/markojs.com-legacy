@@ -2,6 +2,7 @@
     padding: 0;
     margin: 0;
 }
+
 /* Basic Typography */
 html, body, pre {
     font-size: 100%;
@@ -11,6 +12,7 @@ html, body, pre {
     font-weight: normal;
     color: #444;
 }
+
 html {
     height: 100%;
     box-sizing: border-box;
@@ -20,18 +22,22 @@ html {
   box-sizing: inherit;
 }
 
+.layout-inner,
 .container {
-    display: block;
-    clear: both;
-    width: 960px;
     margin: 0 auto;
-    position: relative;
+    padding: 0 10px;
+    min-width: 240px;
+    max-width: 960px;
+}
+
+.container {
+    clear: both;
 }
 
 footer {
-    padding: 2em 0em 2.5em 0em;
+    padding: 20px;
     font-size:0.8em;
-    line-height: 1.5em;
+    line-height: 1.5;
     color: #888;
     text-align: right;
 }
@@ -153,32 +159,8 @@ footer a:hover {
     text-decoration: none;
 }
 
-@media only screen and (min-width: 1281px) {
-    .container {
-        display: block;
-        clear: both;
-        width: 920px;
-        margin: 0 auto;
-        position: relative;
-    }
-}
-
-/* Small Screens */
-@media only screen and (max-width: 1280px) {
-    .container {
-        width: auto;
-        margin-left: 1.5em;
-        margin-right: 1.5em;
-    }
-
-    footer {
-        padding: 0 2.5em 2em 2.5em;
-    }
-}
-
 /* Tablet Screens */
 @media only screen and (max-width: 768px) {
-
 
     #header h1 {
         font-size: 1.8em;
@@ -188,19 +170,12 @@ footer a:hover {
         font-size:1.4em;
     }
 
-    .container {
-        width: auto;
-        margin-left: 10px;
-        margin-right: 10px;
-    }
-
     main {
         /*margin-right: 0;*/
         font-size: 1em;
     }
 
     #sidebar {
-
         font-size: 1em;
     }
 
@@ -208,16 +183,6 @@ footer a:hover {
         font-size: 1.4em;
     }
 
-
-    footer {
-        padding: 0 2.5em 2em 2.5em;
-    }
-
-    #nav .search-form .search-input {
-        font-size: .9em;
-        line-height: 1.1em;
-        width: 70%;
-    }
 }
 
 /* Tiny Screens */
@@ -229,12 +194,6 @@ footer a:hover {
 
     #header h2 {
         font-size:1.4em;
-    }
-
-    .container {
-        width: auto;
-        margin-left: 15px;
-        margin-right: 15px;
     }
 
     main {
@@ -264,16 +223,10 @@ footer a:hover {
         font-size: 1em;
     }
 
-
-    footer {
-        padding: 0 2.5em 2em 2.5em;
-    }
-
     html, body, pre {
         font-size: 1em;
     }
 }
-
 
 table.markdown-table {
     width: 100%;
