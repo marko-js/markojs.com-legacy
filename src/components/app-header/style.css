@@ -1,30 +1,8 @@
 #header {
-    background-color: #111;
+    background-color: #333;
     margin: 0;
     padding: 0;
     position: relative;
-}
-
-#header h1 {
-    margin-top: 0;
-    font-size:2.2em;
-    margin-bottom: 0;
-}
-#header h1 a {
-    color: #eee;
-
-}
-#header h1 a:hover {
-    text-decoration: none;
-}
-
-#header h2 {
-    font-family: "Open Sans", sans-serif;
-    font-size:1.3em;
-    padding: 0;
-    margin: 0;
-    color: #BDBDBD;
-    font-weight: 200;
 }
 
 #logo {
@@ -35,17 +13,24 @@
 
 #nav {
     float: right;
+    font-size: 22px;
     padding: 0;
-    font-size: 20px;
-    transition: transform 0.3s ease-in-out;
-    -webkit-transition: -webkit-transform 0.3s ease-out;
+}
+
+#nav ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
+#nav ul li {
+    display: inline-block;
 }
 
 #nav a {
     text-decoration: none;
     color: #eee;
-    padding-bottom: 13px;
-    margin: 0 10px;
+    margin: 0 20px;
     display: inline-block;
     padding-bottom: 10px;
     padding-top: 34px;
@@ -62,163 +47,30 @@
     border-bottom: 3px solid #fdb725;
 }
 
-#nav ul {
-    margin: 0;
-    padding: 0;
-    list-style-type: none;
-    text-align: center;
-}
-
-#nav ul li {
-    display: inline-block;
-    text-align: center;
-}
-
-#nav .search-form {
-    padding-left: 15px;
-}
-
-#nav .search-form .search-input {
-    padding: 5px 10px;
-    font-size: 18px;
-    line-height: 1.1;
-    border-radius: 7px;
-    background-color: #f2f2f2;
-    border: 1px solid #b3b3b3;
-    color: #888;
-    position: relative;
-    top: -2px;
-}
-
-#nav fieldset {
-    margin: 0;
-    padding: 0;
-    border: 0;
-    font: inherit;
-    font-size: 100%;
-    vertical-align: baseline;
-}
-
-#nav:after {
-    content: "";
-    display: table;
-    clear: both;
-}
-
-#header h6 {
-    margin-top:0.5em;
-}
-
-#mobileMenu {
-    text-align: right;
-    color: white;
-    display: none;
-    padding: 8px;
-    z-index: 300;
-    transform:translateY(0%);
-    -ms-transform:translateY(0%); /* IE */
-    -moz-transform:translateY(0%); /* Firefox */
-    -webkit-transform:translateY(0%); /* Safari and Chrome */
-    -o-transform:translateY(0%); /* Opera */
-}
-
-#header .menu-icon {
-    background-image: url(./menu.svg);
-    width: 24px;
-    height: 24px;
-    display: inline-block;
-    vertical-align: baseline;
-}
-
-/* Tablet Screens */
-@media only screen and (max-width: 768px) {
-    #nav ul {
-        text-align: right;
-    }
-}
-
-/* Tiny Screens */
-@media only screen and (max-width: 670px) {
+@media only screen and (max-width: 600px) {
     body {
-        margin-top: 65px;
+        margin-top: 49px;
     }
 
     #header {
         position: fixed;
-        top: 0px;
+        top: 0;
+        left: 0;
+        right: 0;
         z-index: 100;
-        left: 0px;
-        right: 0px;
         cursor: pointer;
     }
 
     #logo {
         position: absolute;
-        z-index: 400;
         width: 50px;
-        top: 2px;
+        top: -3px;
         left: 10px;
-        transform:translateY(0%);
-        -ms-transform:translateY(0%); /* IE */
-        -moz-transform:translateY(0%); /* Firefox */
-        -webkit-transform:translateY(0%); /* Safari and Chrome */
-        -o-transform:translateY(0%); /* Opera */
-    }
-
-    #mobileMenu {
-        background-color: #111;
-        display: block;
-        position: fixed;
-        top: 0px;
-        left: 0px;
-        height: 50px;
-        line-height: 50px;
-        vertical-align: middle;
-        right: 0px;
-    }
-
-    #nav {
-        position: fixed;
-        left: 0px;
-        right: 0px;
-        top: 50px;
-        background-color: #111;
-        z-index: 100;
-        margin: 0;
-        border-bottom-left-radius: 10px;
-        border-bottom-right-radius: 10px;
-    }
-
-    #nav ul {
-        overflow: hidden;
-    }
-
-    #nav.mobile-hidden {
-        transform:translateY(-100%);
-        -ms-transform:translateY(-100%); /* IE */
-        -moz-transform:translateY(-100%); /* Firefox */
-        -webkit-transform:translateY(-100%); /* Safari and Chrome */
-        -o-transform:translateY(-100%); /* Opera */
-    }
-
-    #nav ul li {
-        display: block;
     }
 
     #nav a {
-        text-decoration: none;
-        padding: 0.5em;
-        margin: 0;
-        font-weight: bold;
-        display: inline-block;
-        border-bottom: 2px solid transparent;
-    }
-
-    #nav .search-form {
-        padding: 0 0 40px 0;
-    }
-
-    #nav .search-form .search-input {
-        top: 5px;
+        margin: 0 7px;
+        padding: 5px 0;
+        font-size: 14px;
     }
 }

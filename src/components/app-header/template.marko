@@ -1,6 +1,6 @@
 <header id="header" w-bind>
 
-    <div class="layout-inner">
+    <div class="container">
         <div id="logo">
             <a href="/" if="data.site.logo">
                 <img src="/images/logo-header.png" alt="${data.site.title}"/>
@@ -14,20 +14,8 @@
                         ${navLink.title}
                     </a>
                 </li>
-                <li>
-                    <form action="https://google.com/search" method="get" class="search-form">
-                        <fieldset role="search">
-                            <input type="hidden" name="q" value="site:${data.site.searchUrl || data.site.url}">
-                            <input type="text" name="q" results="0" placeholder="Search" class="search-input" size="13">
-                        </fieldset>
-                    </form>
-                </li>
             </ul>
         </nav>
-
-        <div id="mobileMenu" w-onClick="handleToggleMenuClick">
-            MENU <div class="menu-icon"></div>
-        </div>
 
         <div style="clear: both"/>
     </div>
