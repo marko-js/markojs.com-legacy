@@ -7,6 +7,7 @@ var extend = require('raptor-util/extend');
 var nodePath = require('path');
 var markoWidgets = require('marko-widgets');
 var compilerAsyncValue = null;
+var isObjectEmpty = require('raptor-util/isObjectEmpty');
 
 var TransformHelper = require('marko-widgets/taglib/TransformHelper');
 TransformHelper.prototype.getDefaultWidgetModule = function() {
@@ -298,9 +299,11 @@ module.exports = require('marko-widgets').defineComponent({
 
         removeClass(this.getEl('outputWrapper'), 'has-errors');
 
+
+
         try {
             if (this.renderedWidget) {
-                if (newInput) {
+                if (newInput || isObjectEmpty(this.renderedWidget.state)) {
                     this.renderedWidget.setProps(this.loadedInput);
                 } else {
                     this.renderedWidget.rerender();
