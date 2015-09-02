@@ -15,7 +15,15 @@
     top: 0px;
     width: 200px;
     padding: 10px;
-    text-align: center;
+    text-align: left;
+}
+
+.mto-categories h2 {
+    font-size: 14px;
+    line-height: 27px;
+    color: #317eac;
+    font-weight: bold;
+    padding-bottom: 0px;
 }
 
 .mto-btn {
@@ -103,6 +111,6 @@
     position: absolute;
     left: 0px;
     right: 0px;
-    top: 2.2em;
+    top: 10px;
     bottom: 0px;
 }

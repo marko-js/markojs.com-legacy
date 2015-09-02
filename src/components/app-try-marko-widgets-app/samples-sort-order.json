@@ -2,5 +2,5 @@
     [ "Stateful", [ "Click Count", "Number Spinner" ] ],
     [ "Stateless", [ "Click Count" ] ],
     [ "Containers", [ "Tabs" ] ],
-    [ "Google Components", [ "Google Maps" ] ]
+    [ "Miscellaneous", [ "Google Maps" ] ]
 ]

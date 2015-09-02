@@ -51,15 +51,16 @@ module.exports = require('marko-widgets').defineComponent({
         });
 
         if (document.location.hash) {
-            var sample = samplesByName[document.location.hash.substring(1)];
+            var sampleName = document.location.hash.substring(1);
+            var sample = samplesByName[sampleName];
             if (sample) {
                 this.showSample(sample.id);
             } else {
-                this.showCategory(samples.categories[0].id);
+                this.showSample(samples.categories[0].samples[0].id);
             }
         } else {
             this.changeHash = false;
-            this.showCategory(samples.categories[0].id);
+            this.showSample(samples.categories[0].samples[0].id);
             this.changeHash = true;
         }
 
@@ -75,6 +76,8 @@ module.exports = require('marko-widgets').defineComponent({
 
 
     showCategory: function(categoryId) {
+        return;
+
         var category = this.categoriesById[categoryId];
         if (!category || category.samples.length === 0) {
             return;
@@ -96,35 +99,35 @@ module.exports = require('marko-widgets').defineComponent({
 
         this.currentSample = sample;
 
-        var categoryId = sample.category.id;
-
-        if (this.currentCategoryId !== categoryId) {
-            if (this.currentCategoryId != null) {
-                removeClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
-                removeClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
-            }
-
-            this.currentCategoryId = categoryId;
-
-            addClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
-            addClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
-
-            // Select the first sample
-            var category = this.categoriesById[categoryId];
-
-            if (sampleId == null) {
-                if (category.samples.length) {
-                    sampleId = category.samples[0].id;
-                }
-            }
-
-
-            // if (category.samples.length === 1) {
-            //     addClass(this.getEl('sampleNavs'), 'hidden');
-            // } else {
-            //     removeClass(this.getEl('sampleNavs'), 'hidden');
-            // }
-        }
+        // var categoryId = sample.category.id;
+        //
+        // if (this.currentCategoryId !== categoryId) {
+        //     if (this.currentCategoryId != null) {
+        //         removeClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
+        //         removeClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
+        //     }
+        //
+        //     this.currentCategoryId = categoryId;
+        //
+        //     addClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
+        //     addClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
+        //
+        //     // Select the first sample
+        //     var category = this.categoriesById[categoryId];
+        //
+        //     if (sampleId == null) {
+        //         if (category.samples.length) {
+        //             sampleId = category.samples[0].id;
+        //         }
+        //     }
+        //
+        //
+        //     // if (category.samples.length === 1) {
+        //     //     addClass(this.getEl('sampleNavs'), 'hidden');
+        //     // } else {
+        //     //     removeClass(this.getEl('sampleNavs'), 'hidden');
+        //     // }
+        // }
 
         if (this.currentSampleId != null) {
             removeClass(this.getSampleButtonEl(this.currentSampleId), 'active');

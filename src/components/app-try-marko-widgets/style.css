@@ -37,21 +37,21 @@
     position: absolute;
     top: 0px;
     left: 10px;
-    height: 35%;
+    height: 40%;
     right: 0px;
 }
 
 .middle {
     position: absolute;
-    top: 36%;
+    top: 41%;
     left: 10px;
-    height: 19%;
+    height: 25%;
     right: 0px;
 }
 
 .bottom {
     position: absolute;
-    top: 55%;
+    top: 67%;
     left: 10px;
     bottom: 10px;
     right: 0px;
