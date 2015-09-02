@@ -2,56 +2,74 @@
     <layout-use template="./layout-default.marko">
         <layout-put into="javaScript">
             <!-- JavaScript -->
-            <app-codemirror mode="javascript"
-                theme="default"
-                auto-resize="false"
-                code="${data.javaScriptCode}"
-                fullscreen="true"
-                w-onChange="handleJavaScriptEditorChange"
-                w-id="javaScriptEditor"/>
-
-            <app-marko-try-online-errors w-id="javaScriptErrors"/>
+            <div class="editor-wrapper" w-id="javaScriptWrapper">
+                <app-codemirror mode="javascript"
+                    theme="default"
+                    auto-resize="false"
+                    code="${data.javaScriptCode}"
+                    fullscreen="true"
+                    w-onChange="handleJavaScriptEditorChange"
+                    w-id="javaScriptEditor"/>
+                <div class="errors-wrapper align-bottom">
+                    <app-marko-try-online-errors w-id="javaScriptErrors"/>
+                </div>
+            </div>
         </layout-put>
 
         <layout-put into="template">
             <!-- Template -->
-            <app-codemirror mode="htmlmixed"
-                auto-resize="true"
-                theme="default"
-                code="${data.templateCode}"
-                w-onChange="handleTemplateEditorChange"
-                w-id="templateEditor"/>
-            <app-marko-try-online-errors w-id="templateErrors"/>
+            <div class="editor-wrapper" w-id="templateWrapper">
+                <app-codemirror mode="htmlmixed"
+                    auto-resize="false"
+                    fullscreen="true"
+                    theme="default"
+                    code="${data.templateCode}"
+                    w-onChange="handleTemplateEditorChange"
+                    w-id="templateEditor"/>
+
+                <div class="errors-wrapper align-below">
+                    <app-marko-try-online-errors w-id="templateErrors"/>
+                <div class="errors-wrapper">
+            </div>
         </layout-put>
 
         <layout-put into="input">
-            <!-- JavaScript -->
-            <app-codemirror mode="javascript"
-                theme="default"
-                auto-resize="true"
-                code="${data.inputCode}"
-                w-onChange="handleInputEditorChange"
-                w-id="inputEditor"/>
+            <!-- Input -->
+            <div class="editor-wrapper" w-id="inputWrapper">
 
-            <app-marko-try-online-errors w-id="inputErrors"/>
+                <app-codemirror mode="javascript"
+                    theme="default"
+                    auto-resize="false"
+                    fullscreen="true"
+                    code="${data.inputCode}"
+                    w-onChange="handleInputEditorChange"
+                    w-id="inputEditor"/>
+
+                <div class="errors-wrapper align-below">
+                    <app-marko-try-online-errors w-id="inputErrors"/>
+                </div>
+            </div>
         </layout-put>
 
         <layout-put into="css">
             <!-- CSS -->
-            <app-codemirror mode="css"
-                theme="default"
-                auto-resize="true"
-                w-onChange="handleCssEditorChange"
-                w-id="cssEditor"/>
-
-            <app-marko-try-online-errors w-id="cssErrors"/>
+            <div>
+                <app-codemirror mode="css"
+                    theme="default"
+                    auto-resize="false"
+                    fullscreen="true"
+                    w-onChange="handleCssEditorChange"
+                    w-id="cssEditor"/>
+            </div>
         </layout-put>
 
         <layout-put into="output">
-            <!-- HTML Output -->
-            <div w-id="htmlViewer" class="output-ctr" if="!data.inline"></div>
-            <div class="errors-ctr">
-                <app-marko-try-online-errors w-id="renderErrors"/>
+            <div w-id="outputWrapper">
+                <!-- HTML Output -->
+                <div w-id="htmlViewer" class="output-ctr hide-if-errors" if="!data.inline"></div>
+                <div class="errors-wrapper">
+                    <app-marko-try-online-errors w-id="renderErrors"/>
+                </div>
             </div>
         </layout-put>
 

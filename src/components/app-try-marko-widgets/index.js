@@ -96,7 +96,7 @@ module.exports = require('marko-widgets').defineComponent({
 
         this.halt = true;
 
-        this.getWidget('javaScriptEditor').setValue(javaScriptCode);
+        this.getWidget('javaScriptEditor').setValue(javaScriptCode + '\n\n\n');
         this.getWidget('inputEditor').setValue(inputCode || '{\n}');
         this.getWidget('templateEditor').setValue(templateCode);
         this.getWidget('cssEditor').setValue(cssCode || '');
@@ -152,6 +152,7 @@ module.exports = require('marko-widgets').defineComponent({
 
         this.loadTemplateRequired = false;
 
+        removeClass(this.getEl('templateWrapper'), 'has-errors');
         this.getWidget('templateErrors').clearErrors();
 
 
@@ -170,6 +171,7 @@ module.exports = require('marko-widgets').defineComponent({
             try {
                 compiler.compile(templateSrc, pseudoPath, null, function(err, compiledSrc) {
                     if (err) {
+                        addClass(self.getEl('templateWrapper'), 'has-errors');
                         self.handleEditorException(self.getWidget('templateErrors'), err);
                         return;
                     }
@@ -186,6 +188,7 @@ module.exports = require('marko-widgets').defineComponent({
                 });
             } catch(e) {
                 self.handleEditorException(self.getWidget('templateErrors'), e);
+                addClass(self.getEl('templateWrapper'), 'has-errors');
                 return callback();
             }
         });
@@ -198,6 +201,7 @@ module.exports = require('marko-widgets').defineComponent({
 
         this.loadJavaScriptRequired = false;
 
+        removeClass(this.getEl('javaScriptWrapper'), 'has-errors');
         this.getWidget('javaScriptErrors').clearErrors();
 
         var javaScriptSrc = this.getWidget('javaScriptEditor').getValue();
@@ -208,6 +212,7 @@ module.exports = require('marko-widgets').defineComponent({
             return this.loadedComponent;
         } catch(e) {
             this.handleEditorException(this.getWidget('javaScriptErrors'), e);
+            addClass(this.getEl('javaScriptWrapper'), 'has-errors');
             return null;
         }
     },
@@ -219,6 +224,7 @@ module.exports = require('marko-widgets').defineComponent({
 
         this.loadInputRequired = false;
 
+        removeClass(this.getEl('inputWrapper'), 'has-errors');
         this.getWidget('inputErrors').clearErrors();
 
         var inputSrc = this.getWidget('inputEditor').getValue().trim() || {};
@@ -228,6 +234,7 @@ module.exports = require('marko-widgets').defineComponent({
             this.loadedInput = eval('(' + inputSrc + ')');
         } catch(e) {
             this.handleEditorException(this.getWidget('inputErrors'), e);
+            addClass(this.getEl('inputWrapper'), 'has-errors');
             return null;
         }
     },
@@ -289,7 +296,7 @@ module.exports = require('marko-widgets').defineComponent({
         var newInput = this.newInput === true;
         this.newInput = false;
 
-        removeClass(this.el, 'has-render-errors');
+        removeClass(this.getEl('outputWrapper'), 'has-errors');
 
         try {
             if (this.renderedWidget) {
@@ -312,7 +319,7 @@ module.exports = require('marko-widgets').defineComponent({
 
             this.getEl('htmlViewer').innerHTML = '';
 
-            addClass(this.el, 'has-render-errors');
+            addClass(this.getEl('outputWrapper'), 'has-errors');
             this.handleEditorException(this.getWidget('renderErrors'), e);
         }
     },

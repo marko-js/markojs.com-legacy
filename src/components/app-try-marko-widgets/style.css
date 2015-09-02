@@ -35,6 +35,7 @@
 
 .top {
     position: absolute;
+    z-index: 1000;
     top: 0px;
     left: 10px;
     height: 40%;
@@ -77,22 +78,53 @@
     display: none;
 }
 
-.app-try-marko-widgets.has-render-errors .output-ctr {
+.has-errors .hide-if-errors {
     display: none;
 }
 
-.app-try-marko-widgets.has-render-errors .errors-ctr {
+.has-errors .errors-wrapper {
     display: block;
+}
+
+.errors-wrapper.align-below {
+    position: absolute;
+    left: 0px;
+    top: 100%;
+    width: 100%;
+    z-index: 1000;
+}
+
+.errors-wrapper.align-bottom {
+    position: absolute;
+    left: 0px;
+    bottom: 0px;
+    overflow: auto;
+    width: 100%;
+    z-index: 1000;
+    opacity: .8;
+}
+
+.errors {
+    border: 1px solid #2073bc;
+}
+
+.editor-wrapper {
+    height: 100%;
+    width: 100%;
+}
+
+.app-tabs.full-screen .tab-pane {
+    overflow: visible;
 }
 
 .mto-tile {
 }
 
-.mto-tile-javascript .CodeMirror-scroll {
+.app-try-marko-widgets .CodeMirror-scroll {
     height: 100%; overflow-y: auto; overflow-x: auto;
 }
 
-.mto-tile-javascript .CodeMirror {
+.app-try-marko-widgets .CodeMirror {
     height: 100%;
 }
 

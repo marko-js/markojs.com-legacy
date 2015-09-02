@@ -6,8 +6,7 @@
 .errors .error {
     border-bottom: 1px solid #EEEEEE;
     color: #660000;
-    padding-top: 4px;
-    padding-bottom: 4px;
+    padding: 4px;
 }
 
 .errors .message {
