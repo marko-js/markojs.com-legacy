@@ -14,8 +14,10 @@
     left: 0px;
     top: 0px;
     width: 200px;
+    bottom: 0px;
     padding: 10px;
     text-align: left;
+    overflow: auto;
 }
 
 .mto-categories h2 {

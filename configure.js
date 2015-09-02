@@ -44,19 +44,25 @@ lasso.configure({
         {
             name: "marko",
             dependencies: [
-                { "path": "require: marko", "recurseInto": "all" }
+                { "path": "require: marko", "recurseInto": "dirtree" }
             ]
         },
         {
             name: "marko-widgets",
             dependencies: [
-                { "path": "require: marko-widgets", "recurseInto": "all" }
+                { "path": "require: marko-widgets", "recurseInto": "dirtree" }
+            ]
+        },
+        {
+            name: "codemirror",
+            dependencies: [
+                { "path": "require: codemirror", "recurseInto": "dirtree" }
             ]
         },
         {
             name: "marko-compiler",
             dependencies: [
-                { "path": "require: marko/compiler", "recurseInto": "all" }
+                { "path": "require: marko/compiler", "recurseInto": "dirtree" }
             ]
         }
     ]
