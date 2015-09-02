@@ -1,35 +1,39 @@
 .hero-bg {
-    background-color: #353534;
+    background-color: #fff;
 }
 
 .hero {
     text-align: center;
-    padding-top: 3em;
-    padding-bottom: 3em;
+    padding: 40px 10px 0;
+}
+
+.hero-img {
+    width: 300px;
 }
 
 .hero h2 {
-    color: #fff;
-    font-size: 1.4em;
-    padding-bottom: 0;
+    color: #333;
+    font-size: 20px;
 }
 
 .marketing-col {
     width: 33.333%;
     float: left;
-    padding: 1em;
+    padding: 15px;
 }
 
 /* Tiny Screens */
-@media only screen and (max-width: 670px) {
-    .hero-bg {
-        position: relative;
-        top: -20px;
+@media only screen and (max-width: 600px) {
+    .hero {
+        padding-top: 10px;
+    }
+
+    .hero-img {
+        width: 150px;
     }
 
     .marketing-col {
         width: auto;
         float: none;
-        padding: 1em;
     }
 }

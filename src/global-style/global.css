@@ -22,15 +22,11 @@ html {
   box-sizing: inherit;
 }
 
-.layout-inner,
 .container {
     margin: 0 auto;
-    padding: 0 10px;
-    min-width: 240px;
+    padding: 0 16px;
+    min-width: 320px;
     max-width: 960px;
-}
-
-.container {
     clear: both;
 }
 
@@ -161,6 +157,10 @@ footer a:hover {
 
 /* Tablet Screens */
 @media only screen and (max-width: 768px) {
+
+    .container {
+        padding: 0 8px;
+    }
 
     #header h1 {
         font-size: 1.8em;
