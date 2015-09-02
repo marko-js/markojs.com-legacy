@@ -1,3 +1,6 @@
 [
-    [ "Simple", [ "Click Count", "Number Spinner" ] ]
+    [ "Stateful", [ "Click Count", "Number Spinner" ] ],
+    [ "Stateless", [ "Click Count" ] ],
+    [ "Containers", [ "Tabs" ] ],
+    [ "Google Components", [ "Google Maps" ] ]
 ]

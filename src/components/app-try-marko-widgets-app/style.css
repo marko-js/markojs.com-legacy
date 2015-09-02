@@ -35,7 +35,7 @@
     color: #369bd7;
 }
 
-.mto-btn-active {
+.mto-btn.active {
     color: #fff;
     background-color: #369bd7;
 }
@@ -72,12 +72,23 @@
     height: 0em;
 }
 
-.mto-sample-nav-active {
+.mto-sample-nav {
+    position: absolute;
+    margin-top: 4px;
+    margin-left: 4px;
+    top: 100%;
+    -webkit-transition: .4s ease-in-out;
+    -moz-transition: .4s ease-in-out;
+    -o-transition: .4s ease-in-out;
+    transition: .4s ease-in-out;
+    visibility: hidden;
+    opacity: 0;
+}
+
+.mto-sample-nav.active {
     top: 0%;
     visibility: visible;
     opacity: 1;
-    /* animation-duration: 3s;
-    animation-name: slidein; */
 }
 
 .right-col {

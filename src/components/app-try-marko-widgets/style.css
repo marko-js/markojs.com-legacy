@@ -53,9 +53,36 @@
     position: absolute;
     top: 55%;
     left: 10px;
-    bottom: 0px;
+    bottom: 10px;
     right: 0px;
     padding: 10px;
+}
+
+.output-ctr {
+    position: absolute;
+    top: 53px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    overflow: auto;
+}
+
+.errors-ctr {
+    position: absolute;
+    top: 53px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    overflow: auto;
+    display: none;
+}
+
+.app-try-marko-widgets.has-render-errors .output-ctr {
+    display: none;
+}
+
+.app-try-marko-widgets.has-render-errors .errors-ctr {
+    display: block;
 }
 
 .mto-tile {

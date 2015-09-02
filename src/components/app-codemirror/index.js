@@ -50,7 +50,8 @@ module.exports = require('marko-widgets').defineComponent({
             value: code || '',
             mode: widgetConfig.mode,
             lineNumbers: widgetConfig.lineNumbers !== false,
-            readOnly: widgetConfig.readOnly === true
+            readOnly: widgetConfig.readOnly === true,
+            indentUnit: 4
         };
 
         if (widgetConfig.autoResize) {

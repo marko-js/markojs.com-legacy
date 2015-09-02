@@ -44,8 +44,7 @@ module.exports = require('marko-widgets').defineComponent({
 
     /**
      * Handler method for the button "click" event. This method name
-     * matches the name of the `w-onClick` attribute in the earlier
-     * template.
+     * matches the name of the `w-onClick` attribute in the template.
      */
     handleButtonClick: function(event, el) {
         this.setState('clickCount', this.state.clickCount + 1);

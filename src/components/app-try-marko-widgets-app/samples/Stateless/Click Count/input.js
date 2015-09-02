@@ -1,0 +1,3 @@
+{
+    greetingName: 'Frank'
+}

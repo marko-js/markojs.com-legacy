@@ -49,8 +49,10 @@
 
         <layout-put into="output">
             <!-- HTML Output -->
-            <div w-id="htmlViewer" class="mto-html-viewer" if="!data.inline"></div>
-            <app-marko-try-online-errors w-id="renderErrors"/>
+            <div w-id="htmlViewer" class="output-ctr" if="!data.inline"></div>
+            <div class="errors-ctr">
+                <app-marko-try-online-errors w-id="renderErrors"/>
+            </div>
         </layout-put>
 
     </layout-use>

@@ -4,7 +4,11 @@ var extend = require('raptor-util/extend');
 
 module.exports = function(input, out) {
     var markdownFile = input.markdownFile;
-    var markdownData = markdown.readFile(markdownFile);
+    var markdownData = markdown.readFile(markdownFile, {
+        linkMappings: {
+            './component-lifecycle.md': '/docs/marko-widgets/component-lifecycle'
+        }
+    });
     var project = input.project;
     var projectTitle = project === 'marko' ? 'Marko' : 'Marko Widgets';
 

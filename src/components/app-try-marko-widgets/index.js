@@ -1,5 +1,7 @@
 require('./style.css');
 
+var removeClass = require('dom-classes').remove;
+var addClass = require('dom-classes').add;
 var AsyncValue = require('raptor-async/AsyncValue');
 var extend = require('raptor-util/extend');
 var nodePath = require('path');
@@ -287,6 +289,8 @@ module.exports = require('marko-widgets').defineComponent({
         var newInput = this.newInput === true;
         this.newInput = false;
 
+        removeClass(this.el, 'has-render-errors');
+
         try {
             if (this.renderedWidget) {
                 if (newInput) {
@@ -301,6 +305,14 @@ module.exports = require('marko-widgets').defineComponent({
                     .getWidget();
             }
         } catch(e) {
+            if (this.renderedWidget) {
+                this.renderedWidget.destroy();
+                this.renderedWidget = null;
+            }
+
+            this.getEl('htmlViewer').innerHTML = '';
+
+            addClass(this.el, 'has-render-errors');
             this.handleEditorException(this.getWidget('renderErrors'), e);
         }
     },

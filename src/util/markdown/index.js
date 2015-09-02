@@ -5,11 +5,28 @@ var frontMatter = require('front-matter');
 var fs = require('fs');
 var markdownRenderer = require('./markdown-renderer');
 
-exports.readFile = function(file) {
+var linkRegExp = /\(([^\)]+)\)/g;
+
+function processLinkMappings(markdown, linkMappings) {
+    return markdown.replace(linkRegExp, function(match, path) {
+        var targetPath = linkMappings[path];
+        return '(' + (targetPath || path) + ')';
+    });
+}
+
+exports.readFile = function(file, options) {
     var summaryHtml;
     var summaryMarkdown;
 
+    options = options || {};
+
+    var linkMappings = options.linkMappings;
+
     var markdown = fs.readFileSync(file, { encoding: 'utf8' });
+
+    if (linkMappings) {
+        markdown = processLinkMappings(markdown, linkMappings);
+    }
 
     var fm = frontMatter(markdown);
     var attributes = fm.attributes || {};

@@ -100,14 +100,14 @@ module.exports = require('marko-widgets').defineComponent({
 
         if (this.currentCategoryId !== categoryId) {
             if (this.currentCategoryId != null) {
-                removeClass(this.getCategoryButtonEl(this.currentCategoryId), 'mto-btn-active');
-                removeClass(this.getCategoryNavEl(this.currentCategoryId), 'mto-sample-nav-active');
+                removeClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
+                removeClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
             }
 
             this.currentCategoryId = categoryId;
 
-            addClass(this.getCategoryButtonEl(this.currentCategoryId), 'mto-btn-active');
-            addClass(this.getCategoryNavEl(this.currentCategoryId), 'mto-sample-nav-active');
+            addClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
+            addClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
 
             // Select the first sample
             var category = this.categoriesById[categoryId];
@@ -119,20 +119,20 @@ module.exports = require('marko-widgets').defineComponent({
             }
 
 
-            if (category.samples.length === 1) {
-                addClass(this.getEl('sampleNavs'), 'hidden');
-            } else {
-                removeClass(this.getEl('sampleNavs'), 'hidden');
-            }
+            // if (category.samples.length === 1) {
+            //     addClass(this.getEl('sampleNavs'), 'hidden');
+            // } else {
+            //     removeClass(this.getEl('sampleNavs'), 'hidden');
+            // }
         }
 
         if (this.currentSampleId != null) {
-            removeClass(this.getSampleButtonEl(this.currentSampleId), 'mto-btn-active');
+            removeClass(this.getSampleButtonEl(this.currentSampleId), 'active');
         }
 
         this.currentSampleId = sampleId;
 
-        addClass(this.getSampleButtonEl(this.currentSampleId), 'mto-btn-active');
+        addClass(this.getSampleButtonEl(this.currentSampleId), 'active');
 
         this.getWidget('tryMarkoWidgets').setCode({
             javaScript: sample.javaScriptCode,
