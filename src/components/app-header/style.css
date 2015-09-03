@@ -28,6 +28,7 @@
 }
 
 #nav a {
+    font-weight: 300;
     text-decoration: none;
     color: #eee;
     margin: 0 20px;
@@ -45,6 +46,39 @@
 
 #nav a.active {
     border-bottom: 3px solid #fdb725;
+}
+
+#nav .fa-search {
+    color: #eee;
+    padding: 0 0 0 20px;
+    cursor: pointer;
+}
+
+#nav .search-form {
+    display: inline;
+}
+
+#nav .search-input {
+    font-size: 18px;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    width: 0;
+    border-radius: 3px;
+    transition: .25s ease-out;
+    transition-property: margin, width, padding;
+}
+
+#nav .search-input--expanded {
+    margin-left: 10px;
+    padding: 3px;
+    width: 130px;
+}
+
+@media only screen and (max-width: 768px) {
+    #nav ul li.nav-search {
+        display: none;
+    }
 }
 
 @media only screen and (max-width: 600px) {
@@ -68,9 +102,12 @@
         left: 10px;
     }
 
+    #nav {
+        font-size: 14px;
+    }
+
     #nav a {
         margin: 0 7px;
         padding: 5px 0;
-        font-size: 14px;
     }
 }
