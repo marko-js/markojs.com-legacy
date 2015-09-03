@@ -1,5 +1,5 @@
 [
-    [ "Stateful", [ "Click Count", "Number Spinner" ] ],
+    [ "Stateful", [ "Click Count", "Number Spinner", "Timer" ] ],
     [ "Stateless", [ "Click Count" ] ],
     [ "Containers", [ "Tabs" ] ],
     [ "Miscellaneous", [ "Google Maps" ] ]

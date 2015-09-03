@@ -1,0 +1,20 @@
+<div w-bind>
+    <p>
+        Elapsed time: ${data.elapsedTime}s
+    </p>
+    <button type="button"
+        disabled="${data.running === true}"
+        w-onClick="handleStartClick">
+        Start
+    </button>
+    <button type="button"
+        disabled="${data.running !== true}"
+        w-onClick="handlePauseClick">
+        Pause
+    </button>
+    <button type="button"
+        disabled="${data.stopDisabled}"
+        w-onClick="handleStopClick">
+        Stop/Clear
+    </button>
+</div>

@@ -159,3 +159,8 @@
 .app-try-marko-inline .cols-ctr {
     position: relative;
 }
+
+.output-ctr button {
+    font-size: 16px;
+    padding: 5px;
+}
