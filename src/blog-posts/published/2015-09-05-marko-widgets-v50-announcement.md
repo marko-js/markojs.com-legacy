@@ -1,5 +1,5 @@
 ---
-categories: ['Marko Widgets','Announcement']
+categories: ['Marko Widgets','Announcements']
 comments: true
 ---
 
