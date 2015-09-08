@@ -1,5 +1,5 @@
 ---
-categories: ['JavaScript','UI Components','Marko Widgets','Node.js', 'Marko']
+categories: ['Marko Widgets']
 comments: true
 ---
 

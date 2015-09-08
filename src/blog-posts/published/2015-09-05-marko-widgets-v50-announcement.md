@@ -1,5 +1,5 @@
 ---
-categories: ['JavaScript','UI Components','Design Patterns','Node.js']
+categories: ['Marko Widgets','Announcement']
 comments: true
 ---
 
