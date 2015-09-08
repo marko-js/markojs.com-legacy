@@ -10,10 +10,10 @@ function Site(metadata) {
 
 Site.prototype = {
     postCategoryRoute: function(category) {
-        return '/category/' + safeFilename(category.name.toLowerCase());
+        return '/blog/category/' + safeFilename(category.name.toLowerCase());
     },
     postRoute: function(post) {
-        return '/' + post.name;
+        return '/blog/' + post.name;
     },
 
     postCategoryUrl: function(category) {
