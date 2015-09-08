@@ -26,13 +26,11 @@
                 </time>
                 <span class="categories" if="notEmpty(post.categories)">
                     &nbsp;
-                    <nobr>
-                        <i class="fa fa-tags"></i> <a href="${site.postCategoryUrl(category)}"
-                            class="category"
-                            for="category in post.categories; separator=', '">
-                            $category.title
-                        </a>
-                    </nobr>
+                    <i class="fa fa-tags"></i> <a href="${site.postCategoryUrl(category)}"
+                        class="category"
+                        for="category in post.categories; separator=', '">
+                        $category.title
+                    </a>
                 </span>
             </div>
             <div class="post-body">
