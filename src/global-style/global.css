@@ -31,9 +31,8 @@ html {
 }
 
 footer {
-    padding: 20px;
+    padding: 20px 0;
     font-size:0.8em;
-    line-height: 1.5;
     color: #888;
     text-align: right;
 }
