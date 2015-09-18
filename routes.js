@@ -74,6 +74,7 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko/javascript-api', 'marko', 'javascript-api');
             addDocsPage('/docs/marko/language-guide', 'marko', 'language-guide');
             addDocsPage('/docs/marko/custom-taglibs', 'marko', 'custom-taglibs');
+            addDocsPage('/docs/marko/compiler', 'marko', 'compiler');
             addDocsPage('/docs/marko/faq', 'marko', 'faq');
             addDocsPage('/docs/marko/additional-resources', 'marko', 'additional-resources');
 
