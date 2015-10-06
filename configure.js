@@ -22,7 +22,11 @@ var isProduction = (process.env.NODE_ENV === 'production');
 
 lasso.configure({
     plugins: [
-        'lasso-marko' // Auto compile Marko template files
+        // Auto compile Marko template files
+        'lasso-marko' ,
+
+        // Enable LESS stylesheets
+        'lasso-less'
     ],
 
     // Directory where generated JS and CSS bundles are written
