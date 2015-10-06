@@ -1,3 +1,5 @@
+@nav-background-color: #353534;
+
 .docs-nav {
     margin-top: 1em;
     width: 200px;
@@ -25,4 +27,11 @@
 
 .docs-nav a.active {
     color: #8ad2f2;
+}
+
+.docs-nav a.try-online {
+    line-height: 2em;
+    background-color: lighten(@nav-background-color, 10%);
+    border-radius:3px;
+    padding: 5px 10px;
 }
