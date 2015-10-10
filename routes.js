@@ -12,7 +12,7 @@ function checkDocs() {
         var dir = docsDirs[project];
 
         if (!fs.existsSync(dir)) {
-            throw new Error('Docs dir not found at path "' + nodePath.relative(process.cwd(), dir) + '". Did you for get to run `npm link ' + project + '`');
+            throw new Error('Docs dir not found at path "' + nodePath.relative(process.cwd(), dir) + '". Did you forget to run `npm link ' + project + '`');
         }
     });
 }
