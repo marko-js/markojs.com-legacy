@@ -10,7 +10,7 @@ html, body, pre {
     line-height: 1.65em;
     font-family: "Helvetica Neue",Helvetica,Roboto,Arial,sans-serif;
     font-weight: normal;
-    color: #444;
+    color: #333;
 }
 
 html {
@@ -33,7 +33,7 @@ html {
 footer {
     padding: 20px 0;
     font-size:0.8em;
-    color: #888;
+    color: #777;
     text-align: right;
 }
 article {
@@ -41,32 +41,27 @@ article {
     padding-bottom: 1.7em;
 }
 p, hr, h4, h5, h6 {
-    padding-top: 0.9em;
-    padding-bottom: 0.9em;
+    padding: 0.9em 0;
 }
+
 /* Headings */
 h1, h2, h3, h4, h5, h6 {
     font-family: "Helvetica Neue",Helvetica,Roboto,Arial,sans-serif;
-    font-weight: 300;
+    font-weight: 500;
+    color: #333;
 }
 h1 {
-    font-size: 1.9em;
-    line-height: 1.1em;
-    padding-top: 0.6em;
-    padding-bottom: 0.6em;
+    font-size: 2em;
+    padding: 0.6em 0;
     font-weight: normal;
 }
 h2 {
     font-size:1.8em;
-    line-height: 1.2em;
-    padding-top: 0.7em;
-    padding-bottom: 0.7em;
+    padding: 0.7em 0;
 }
 h3 {
     font-size:1.4em;
-    line-height: 1.3em;
-    padding-top: 0.8em;
-    padding-bottom: 0.8em;
+    padding: 0.8em 0;
 }
 h4 {
     font-size:1.3em;
@@ -77,6 +72,7 @@ h5 {
 h6 {
     font-size:1.1em;
 }
+
 /* Page Elements */
 img, iframe {
     max-width: 100%;
@@ -87,9 +83,6 @@ a {
 }
 a:hover {
     text-decoration:underline;
-}
-h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
-    font-weight:400 !important;
 }
 strong {
     font-weight: bold;
@@ -123,7 +116,8 @@ pre {
     border: 1px solid #ddd;
     line-height: 1.1em;
     overflow: auto;
-    padding: 6px 10px;
+    padding: 10px;
+    margin-bottom: 0.9em;
     border-radius: 3px;
 }
 
@@ -133,11 +127,15 @@ input {
 }
 
 article span.post-stamp {
-    color:#888;
+    color: #777;
 }
 
-main h1, main h2, main h3, main h4, main h5{
-    color: #7d2655;
+.try-online {
+    display: inline-block;
+    background-color: #2b7abf;
+    border-radius:5px;
+    padding: 3px 10px;
+    color: #fff !important;
 }
 
 /* Footer */
@@ -150,7 +148,7 @@ footer a {
     text-decoration: underline;
 }
 footer a:hover {
-    color:#444;
+    color: #333;
     text-decoration: none;
 }
 
@@ -263,7 +261,7 @@ table.markdown-table tr:nth-child(2n) {
     height: 30px;
     cursor: pointer;
     position: absolute;
-    margin-left: -29px;
+    margin: -4px 0 0 -27px;
     text-align: center;
 }
 
