@@ -3,7 +3,7 @@ main {
 }
 h1 .subtitle {
     font-size: 0.5em;
-    color: #2e79bf;
+    color: #777;
 }
 
 @media only screen and (max-width: 670px) {
@@ -11,7 +11,6 @@ h1 .subtitle {
         margin-top: 0;
         width: auto;
         float: none;
-        background-color: #353534;
         padding-left: 1em;
         padding-right: 1em;
         padding-bottom: 1em;
