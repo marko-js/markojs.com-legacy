@@ -50,6 +50,13 @@
         <google-analytics tracking-id="${data.site.googleAnalyticsTrackingID}"
             domain="${data.site.googleAnalyticsDomain}" />
 
+        <script>
+          ((window.gitter = {}).chat = {}).options = {
+            room: 'marko-js/marko'
+          };
+        </script>
+        <script src="https://sidecar.gitter.im/dist/sidecar.v1.js" async defer></script>
+
         <browser-refresh enabled="true"/>
     </body>
 </html>
