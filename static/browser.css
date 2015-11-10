@@ -1,0 +1,1049 @@
+* {
+    padding: 0;
+    margin: 0;
+}
+
+/* Basic Typography */
+html, body, pre {
+    font-size: 100%;
+    font: inherit;
+    line-height: 1.65em;
+    font-family: "Helvetica Neue",Helvetica,Roboto,Arial,sans-serif;
+    font-weight: normal;
+    color: #333;
+}
+
+html {
+    height: 100%;
+    box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+.container {
+    margin: 0 auto;
+    padding: 0 16px;
+    min-width: 320px;
+    max-width: 960px;
+    clear: both;
+}
+
+footer {
+    padding: 20px 0;
+    font-size:0.8em;
+    color: #777;
+    text-align: right;
+}
+article {
+    border-bottom: 0.1em #eee solid;
+    padding-bottom: 1.7em;
+}
+p, hr, h4, h5, h6 {
+    padding: 0.9em 0;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Helvetica Neue",Helvetica,Roboto,Arial,sans-serif;
+    font-weight: 500;
+    color: #333;
+}
+h1 {
+    font-size: 2em;
+    padding: 0.6em 0;
+    font-weight: normal;
+}
+h2 {
+    font-size:1.8em;
+    padding: 0.7em 0;
+}
+h3 {
+    font-size:1.4em;
+    padding: 0.8em 0;
+}
+h4 {
+    font-size:1.3em;
+}
+h5 {
+    font-size:1.2em;
+}
+h6 {
+    font-size:1.1em;
+}
+
+/* Page Elements */
+img, iframe {
+    max-width: 100%;
+}
+a {
+    text-decoration:none;
+    color: #2b7abf;
+}
+a:hover {
+    text-decoration:underline;
+}
+strong {
+    font-weight: bold;
+}
+blockquote {
+    border-left: 0.4em solid #eee;
+    padding-left: 1.2em;
+    font-size: 1.3em;
+}
+hr{
+    border: 0;
+    height: 1px;
+    background: #eee;
+}
+ul, ol {
+    margin-left: 3em;
+}
+code {
+    /*font-size:1.4em;*/
+    background: #f8f8f8;
+}
+pre {
+    /*word-break: break-all;
+    word-wrap: break-word;
+    white-space: pre;
+    white-space: -moz-pre-wrap;
+    white-space: pre-wrap;
+    white-space: pre\9;*/
+    /*white-space: nowrap;*/
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    line-height: 1.1em;
+    overflow: auto;
+    padding: 10px;
+    margin-bottom: 0.9em;
+    border-radius: 3px;
+}
+
+input {
+    font-size:1em;
+    padding: 0.3em;
+}
+
+article span.post-stamp {
+    color: #777;
+}
+
+.try-online {
+    display: inline-block;
+    background-color: #2b7abf;
+    border-radius:5px;
+    padding: 3px 10px;
+    color: #fff !important;
+}
+
+/* Footer */
+.pagination {
+    margin-bottom:1em;
+}
+footer a {
+    font-weight:300;
+    color:#888;
+    text-decoration: underline;
+}
+footer a:hover {
+    color: #333;
+    text-decoration: none;
+}
+
+/* Tablet Screens */
+@media only screen and (max-width: 768px) {
+
+    .container {
+        padding: 0 8px;
+    }
+
+    #header h1 {
+        font-size: 1.8em;
+    }
+
+    #header h2 {
+        font-size:1.4em;
+    }
+
+    main {
+        /*margin-right: 0;*/
+        font-size: 1em;
+    }
+
+    #sidebar {
+        font-size: 1em;
+    }
+
+    main h1 {
+        font-size: 1.4em;
+    }
+
+}
+
+/* Tiny Screens */
+@media only screen and (max-width: 670px) {
+
+    #header h1 {
+        font-size: 1.8em;
+    }
+
+    #header h2 {
+        font-size:1.4em;
+    }
+
+    main {
+        margin-right: 0;
+        font-size: 1em;
+    }
+
+    #sidebar {
+        width: auto;
+        position: static;
+        font-size: 1em;
+    }
+
+    main h1 {
+        font-size: 1.4em;
+    }
+
+    main h2 {
+        font-size: 1.3em;
+    }
+
+    main h4 {
+        font-size: 1.2em;
+    }
+
+    main h5 {
+        font-size: 1em;
+    }
+
+    html, body, pre {
+        font-size: 1em;
+    }
+}
+
+table.markdown-table {
+    width: 100%;
+    overflow: auto;
+    display: block;
+    border-collapse: collapse;
+}
+
+table.markdown-table th {
+    font-weight: 700;
+}
+
+table.markdown-table th,table.markdown-table td {
+    border: 1px solid #ddd;
+    padding: 6px 13px;
+}
+
+table.markdown-table tr {
+    border-top: 1px solid #ccc;
+    background-color: #fff;
+}
+
+table.markdown-table tr:nth-child(2n) {
+    background-color: #f8f8f8;
+}
+
+.post-meta {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 1em;
+}
+
+.anchor {
+    display: none;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    position: absolute;
+    margin: -4px 0 0 -27px;
+    text-align: center;
+}
+
+main h1:hover a.anchor,  main h2:hover a.anchor, main h3:hover a.anchor, main h4:hover a.anchor, main h5:hover a.anchor, main h6:hover a.anchor {
+    display: inline-block;
+}
+
+.anchor .header-link {
+    display: inline-block;
+    font-family: FontAwesome;
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 18px;
+}
+
+.anchor .header-link:before {
+    content: "\f0c1";
+}
+/*
+
+Google Code style (c) Aahan Krish <geekpanth3r@gmail.com>
+
+*/
+
+.hljs {
+  display: block;
+  padding: 0.5em;
+  background: white;
+  color: black;
+}
+
+.hljs-comment,
+.hljs-template_comment,
+.hljs-javadoc {
+  color: #800;
+}
+
+.hljs-keyword,
+.method,
+.hljs-list .hljs-title,
+.clojure .hljs-built_in,
+.nginx .hljs-title,
+.hljs-tag .hljs-title,
+.setting .hljs-value,
+.hljs-winutils,
+.tex .hljs-command,
+.http .hljs-title,
+.hljs-request,
+.hljs-status {
+  color: #008;
+}
+
+.hljs-envvar,
+.tex .hljs-special {
+  color: #660;
+}
+
+.hljs-string,
+.hljs-tag .hljs-value,
+.hljs-cdata,
+.hljs-filter .hljs-argument,
+.hljs-attr_selector,
+.apache .hljs-cbracket,
+.hljs-date,
+.hljs-regexp,
+.coffeescript .hljs-attribute {
+  color: #080;
+}
+
+.hljs-sub .hljs-identifier,
+.hljs-pi,
+.hljs-tag,
+.hljs-tag .hljs-keyword,
+.hljs-decorator,
+.ini .hljs-title,
+.hljs-shebang,
+.hljs-prompt,
+.hljs-hexcolor,
+.hljs-rules .hljs-value,
+.hljs-literal,
+.hljs-symbol,
+.ruby .hljs-symbol .hljs-string,
+.hljs-number,
+.css .hljs-function,
+.clojure .hljs-attribute {
+  color: #066;
+}
+
+.hljs-class .hljs-title,
+.haskell .hljs-type,
+.smalltalk .hljs-class,
+.hljs-javadoctag,
+.hljs-yardoctag,
+.hljs-phpdoc,
+.hljs-typename,
+.hljs-tag .hljs-attribute,
+.hljs-doctype,
+.hljs-class .hljs-id,
+.hljs-built_in,
+.setting,
+.hljs-params,
+.hljs-variable,
+.clojure .hljs-title {
+  color: #606;
+}
+
+.css .hljs-tag,
+.hljs-rules .hljs-property,
+.hljs-pseudo,
+.hljs-subst {
+  color: #000;
+}
+
+.css .hljs-class,
+.css .hljs-id {
+  color: #9b703f;
+}
+
+.hljs-value .hljs-important {
+  color: #ff7700;
+  font-weight: bold;
+}
+
+.hljs-rules .hljs-keyword {
+  color: #c5af75;
+}
+
+.hljs-annotation,
+.apache .hljs-sqbracket,
+.nginx .hljs-built_in {
+  color: #9b859d;
+}
+
+.hljs-preprocessor,
+.hljs-preprocessor *,
+.hljs-pragma {
+  color: #444;
+}
+
+.tex .hljs-formula {
+  background-color: #eee;
+  font-style: italic;
+}
+
+.diff .hljs-header,
+.hljs-chunk {
+  color: #808080;
+  font-weight: bold;
+}
+
+.diff .hljs-change {
+  background-color: #bccff9;
+}
+
+.hljs-addition {
+  background-color: #baeeba;
+}
+
+.hljs-deletion {
+  background-color: #ffc8bd;
+}
+
+.hljs-comment .hljs-yardoctag {
+  font-weight: bold;
+}
+.mto {
+    position: relative;
+}
+
+.mto h2 {
+    font-size: 18px;
+    line-height: 27px;
+    color: #317eac;
+    font-weight: bold;
+}
+
+.mto-categories {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 200px;
+    padding: 10px;
+    text-align: center;
+}
+
+.mto-btn {
+    position: relative;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+    margin: 0px;
+    outline: none;
+    padding: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    border: 0px;
+    font-size: 14px;
+    line-height: 18px;
+    background-color: transparent;
+    color: #369bd7;
+}
+
+.mto-btn-active {
+    color: #fff;
+    background-color: #369bd7;
+}
+
+.mto-category-btn {
+    width: 100%;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.mto-sample-btn {
+    display: inline-block;
+}
+
+.mto-sample-navs {
+    margin-bottom: 5px;
+    height: 2.2em;
+    position: relative;
+    overflow: hidden;
+    -webkit-transition: .4s ease-in-out;
+    -moz-transition: .4s ease-in-out;
+    -o-transition: .4s ease-in-out;
+    transition: .4s ease-in-out;
+}
+
+.mto-sample-navs.hidden {
+    height: 0em;
+}
+
+.mto-sample-nav {
+    position: absolute;
+    margin-top: 4px;
+    margin-left: 4px;
+    top: 100%;
+    -webkit-transition: .4s ease-in-out;
+    -moz-transition: .4s ease-in-out;
+    -o-transition: .4s ease-in-out;
+    transition: .4s ease-in-out;
+    visibility: hidden;
+    opacity: 0;
+}
+
+.mto-sample-nav-active {
+    top: 0%;
+    visibility: visible;
+    opacity: 1;
+    /* animation-duration: 3s;
+    animation-name: slidein; */
+}
+
+.try-marko-container {
+    position: absolute;
+    left: 200px;
+    right: 0px;
+    top: 0px;
+    bottom: 0px;
+}
+/* BASICS */
+
+.CodeMirror {
+  /* Set height, width, borders, and global font properties here */
+  font-family: monospace;
+  height: 300px;
+  color: black;
+}
+
+/* PADDING */
+
+.CodeMirror-lines {
+  padding: 4px 0; /* Vertical padding around content */
+}
+.CodeMirror pre {
+  padding: 0 4px; /* Horizontal padding of content */
+}
+
+.CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+  background-color: white; /* The little square between H and V scrollbars */
+}
+
+/* GUTTER */
+
+.CodeMirror-gutters {
+  border-right: 1px solid #ddd;
+  background-color: #f7f7f7;
+  white-space: nowrap;
+}
+.CodeMirror-linenumbers {}
+.CodeMirror-linenumber {
+  padding: 0 3px 0 5px;
+  min-width: 20px;
+  text-align: right;
+  color: #999;
+  white-space: nowrap;
+}
+
+.CodeMirror-guttermarker { color: black; }
+.CodeMirror-guttermarker-subtle { color: #999; }
+
+/* CURSOR */
+
+.CodeMirror-cursor {
+  border-left: 1px solid black;
+  border-right: none;
+  width: 0;
+}
+/* Shown when moving in bi-directional text */
+.CodeMirror div.CodeMirror-secondarycursor {
+  border-left: 1px solid silver;
+}
+.cm-fat-cursor .CodeMirror-cursor {
+  width: auto;
+  border: 0;
+  background: #7e7;
+}
+.cm-fat-cursor div.CodeMirror-cursors {
+  z-index: 1;
+}
+
+.cm-animate-fat-cursor {
+  width: auto;
+  border: 0;
+  -webkit-animation: blink 1.06s steps(1) infinite;
+  -moz-animation: blink 1.06s steps(1) infinite;
+  animation: blink 1.06s steps(1) infinite;
+  background-color: #7e7;
+}
+@-moz-keyframes blink {
+  0% {}
+  50% { background-color: transparent; }
+  100% {}
+}
+@-webkit-keyframes blink {
+  0% {}
+  50% { background-color: transparent; }
+  100% {}
+}
+@keyframes blink {
+  0% {}
+  50% { background-color: transparent; }
+  100% {}
+}
+
+/* Can style cursor different in overwrite (non-insert) mode */
+.CodeMirror-overwrite .CodeMirror-cursor {}
+
+.cm-tab { display: inline-block; text-decoration: inherit; }
+
+.CodeMirror-ruler {
+  border-left: 1px solid #ccc;
+  position: absolute;
+}
+
+/* DEFAULT THEME */
+
+.cm-s-default .cm-header {color: blue;}
+.cm-s-default .cm-quote {color: #090;}
+.cm-negative {color: #d44;}
+.cm-positive {color: #292;}
+.cm-header, .cm-strong {font-weight: bold;}
+.cm-em {font-style: italic;}
+.cm-link {text-decoration: underline;}
+.cm-strikethrough {text-decoration: line-through;}
+
+.cm-s-default .cm-keyword {color: #708;}
+.cm-s-default .cm-atom {color: #219;}
+.cm-s-default .cm-number {color: #164;}
+.cm-s-default .cm-def {color: #00f;}
+.cm-s-default .cm-variable,
+.cm-s-default .cm-punctuation,
+.cm-s-default .cm-property,
+.cm-s-default .cm-operator {}
+.cm-s-default .cm-variable-2 {color: #05a;}
+.cm-s-default .cm-variable-3 {color: #085;}
+.cm-s-default .cm-comment {color: #a50;}
+.cm-s-default .cm-string {color: #a11;}
+.cm-s-default .cm-string-2 {color: #f50;}
+.cm-s-default .cm-meta {color: #555;}
+.cm-s-default .cm-qualifier {color: #555;}
+.cm-s-default .cm-builtin {color: #30a;}
+.cm-s-default .cm-bracket {color: #997;}
+.cm-s-default .cm-tag {color: #170;}
+.cm-s-default .cm-attribute {color: #00c;}
+.cm-s-default .cm-hr {color: #999;}
+.cm-s-default .cm-link {color: #00c;}
+
+.cm-s-default .cm-error {color: #f00;}
+.cm-invalidchar {color: #f00;}
+
+.CodeMirror-composing { border-bottom: 2px solid; }
+
+/* Default styles for common addons */
+
+div.CodeMirror span.CodeMirror-matchingbracket {color: #0f0;}
+div.CodeMirror span.CodeMirror-nonmatchingbracket {color: #f22;}
+.CodeMirror-matchingtag { background: rgba(255, 150, 0, .3); }
+.CodeMirror-activeline-background {background: #e8f2ff;}
+
+/* STOP */
+
+/* The rest of this file contains styles related to the mechanics of
+   the editor. You probably shouldn't touch them. */
+
+.CodeMirror {
+  position: relative;
+  overflow: hidden;
+  background: white;
+}
+
+.CodeMirror-scroll {
+  overflow: scroll !important; /* Things will break if this is overridden */
+  /* 30px is the magic margin used to hide the element's real scrollbars */
+  /* See overflow: hidden in .CodeMirror */
+  margin-bottom: -30px; margin-right: -30px;
+  padding-bottom: 30px;
+  height: 100%;
+  outline: none; /* Prevent dragging from highlighting the element */
+  position: relative;
+}
+.CodeMirror-sizer {
+  position: relative;
+  border-right: 30px solid transparent;
+}
+
+/* The fake, visible scrollbars. Used to force redraw during scrolling
+   before actuall scrolling happens, thus preventing shaking and
+   flickering artifacts. */
+.CodeMirror-vscrollbar, .CodeMirror-hscrollbar, .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+  position: absolute;
+  z-index: 6;
+  display: none;
+}
+.CodeMirror-vscrollbar {
+  right: 0; top: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+.CodeMirror-hscrollbar {
+  bottom: 0; left: 0;
+  overflow-y: hidden;
+  overflow-x: scroll;
+}
+.CodeMirror-scrollbar-filler {
+  right: 0; bottom: 0;
+}
+.CodeMirror-gutter-filler {
+  left: 0; bottom: 0;
+}
+
+.CodeMirror-gutters {
+  position: absolute; left: 0; top: 0;
+  z-index: 3;
+}
+.CodeMirror-gutter {
+  white-space: normal;
+  height: 100%;
+  display: inline-block;
+  margin-bottom: -30px;
+  /* Hack to make IE7 behave */
+  *zoom:1;
+  *display:inline;
+}
+.CodeMirror-gutter-wrapper {
+  position: absolute;
+  z-index: 4;
+  background: none !important;
+  border: none !important;
+}
+.CodeMirror-gutter-background {
+  position: absolute;
+  top: 0; bottom: 0;
+  z-index: 4;
+}
+.CodeMirror-gutter-elt {
+  position: absolute;
+  cursor: default;
+  z-index: 4;
+}
+.CodeMirror-gutter-wrapper {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
+.CodeMirror-lines {
+  cursor: text;
+  min-height: 1px; /* prevents collapsing before first draw */
+}
+.CodeMirror pre {
+  /* Reset some styles that the rest of the page might have set */
+  -moz-border-radius: 0; -webkit-border-radius: 0; border-radius: 0;
+  border-width: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  margin: 0;
+  white-space: pre;
+  word-wrap: normal;
+  line-height: inherit;
+  color: inherit;
+  z-index: 2;
+  position: relative;
+  overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+}
+.CodeMirror-wrap pre {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  word-break: normal;
+}
+
+.CodeMirror-linebackground {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  z-index: 0;
+}
+
+.CodeMirror-linewidget {
+  position: relative;
+  z-index: 2;
+  overflow: auto;
+}
+
+.CodeMirror-widget {}
+
+.CodeMirror-code {
+  outline: none;
+}
+
+/* Force content-box sizing for the elements where we expect it */
+.CodeMirror-scroll,
+.CodeMirror-sizer,
+.CodeMirror-gutter,
+.CodeMirror-gutters,
+.CodeMirror-linenumber {
+  -moz-box-sizing: content-box;
+  box-sizing: content-box;
+}
+
+.CodeMirror-measure {
+  position: absolute;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.CodeMirror-cursor { position: absolute; }
+.CodeMirror-measure pre { position: static; }
+
+div.CodeMirror-cursors {
+  visibility: hidden;
+  position: relative;
+  z-index: 3;
+}
+div.CodeMirror-dragcursors {
+  visibility: visible;
+}
+
+.CodeMirror-focused div.CodeMirror-cursors {
+  visibility: visible;
+}
+
+.CodeMirror-selected { background: #d9d9d9; }
+.CodeMirror-focused .CodeMirror-selected { background: #d7d4f0; }
+.CodeMirror-crosshair { cursor: crosshair; }
+.CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection { background: #d7d4f0; }
+.CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection { background: #d7d4f0; }
+
+.cm-searching {
+  background: #ffa;
+  background: rgba(255, 255, 0, .4);
+}
+
+/* IE7 hack to prevent it from returning funny offsetTops on the spans */
+.CodeMirror span { *vertical-align: text-bottom; }
+
+/* Used to force a border model for a node */
+.cm-force-border { padding-right: .1px; }
+
+@media print {
+  /* Hide the cursor when printing */
+  .CodeMirror div.CodeMirror-cursors {
+    visibility: hidden;
+  }
+}
+
+/* See issue #2901 */
+.cm-tab-wrap-hack:after { content: ''; }
+
+/* Help users use markselection to safely style text background */
+span.CodeMirror-selectedtext { background: none; }
+
+.app-codemirror {
+    border: 1px solid #eee;
+}
+
+.app-codemirror-auto-resize .CodeMirror {
+    height: auto;
+}
+
+.app-codemirror-auto-resize .CodeMirror-scroll {
+    overflow-y: hidden;
+    overflow-x: auto;
+}
+
+.CodeMirror pre {
+    line-height: 1.25;
+}
+
+.app-codemirror.hidden {
+    display: none;
+}
+
+.app-codemirror.app-codemirror-fullscreen {
+    height: 100%;
+}
+.data-ctr {
+    width: 50%;
+    float: left;
+}
+
+.template-ctr {
+    width: 50%;
+    float: left;
+}
+
+.mto-tiles {
+    position: absolute;
+    left: 200px;
+    right: 0px;
+    top: 0px;
+    bottom: 0px;
+}
+
+.mto-col-input {
+    position: absolute;
+    left: 0px;
+    width: 50%;
+}
+
+.mto-col-output {
+    position: absolute;
+    right: 0px;
+    width: 50%;
+    padding-left: 10px;
+}
+
+.mto-tile {
+}
+
+.mto-tile-template {
+    margin-bottom: 15px;
+}
+
+.mto-tile-data {
+
+}
+
+.mto-tile-mto-options {
+    display: none;
+}
+
+.mto-tile-output {
+    margin-bottom: 15px;
+}
+
+.mto-tile-compiled {
+
+}
+
+
+.mto-html-viewer {
+    border: 1px solid #c0c0c0;
+    padding: 3px;
+    margin-top: 5px;
+    background-color: #f7f7f7;
+}
+
+.app-try-marko-inline .cols-ctr {
+    position: relative;
+}
+
+.app-try-marko-inline.inline {
+    background-color: #444;
+    padding: 1em;
+    margin-top: 2em;
+    margin-bottom: 2em;
+}
+
+
+.app-try-marko-inline.inline h2 {
+    font-size: 15px;
+    padding-bottom: 3px;
+    color: #fdb725;
+}
+
+.app-try-marko-inline.inline .mto-col-input {
+    position: relative;
+    float: left;
+    width: 50%;
+    padding-right: 10px;
+}
+
+.app-try-marko-inline.inline .mto-col-output {
+    position: relative;
+    float: left;
+    width: 50%;
+    padding-left: 10px;
+}
+.errors {
+    width: 100%;
+    overflow-x: auto;
+    background-color: #FFFFCC;
+}
+.errors .error {
+    border-bottom: 1px solid #EEEEEE;
+    color: #660000;
+    padding: 4px;
+}
+
+.errors .message {
+    padding-left: 25px;
+}
+
+.errors .icon {
+    margin-left: 5px;
+    float: left;
+    color: #CC0000;
+}
+
+.errors.hidden {
+    display: none;
+}
+header {
+    padding-top: 60px;
+}
+
+
+.navbar {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    font-size: 16px;
+    background-color: #000;
+    height: 40px;
+    line-height: 40px;
+    vertical-align: middle;
+    z-index: 100;
+    -webkit-box-shadow: 0px 3px 13px 0px rgba(0,0,0,0.75);
+    -moz-box-shadow: 0px 3px 13px 0px rgba(0,0,0,0.75);
+    box-shadow: 0px 3px 13px 0px rgba(0,0,0,0.75);
+
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.navbar A, .navbar A:hover {
+    text-decoration: none;
+}
+
+.navbar, .navbar A {
+    color: #fbaf31;
+}
+.navbar A {
+    color: #fbaf31;
+    /* text-shadow: 0 2px 0 rgba(0,0,0,0.5);
+    color: #ffb376;
+    text-shadow: 0 2px 0 rgba(0,0,0,0.5); */
+    font-weight: normal;
+    text-decoration: underline;
+}
+
+.navbar .container {
+    margin-left: 10px;
+    margin-right: 10px;
+    width: auto;
+    position: relative;
+}
