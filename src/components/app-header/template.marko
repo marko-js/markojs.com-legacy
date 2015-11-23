@@ -17,7 +17,7 @@
                 <li class="nav-search">
                     <i class="fa fa-search" w-onclick="handleToggleSearchClick"></i>
                     <form action="https://google.com/search" method="get" class="search-form">
-                        <input type="hidden" name="q" value="site:${data.site.searchUrl || data.site.url}">
+                        <input type="hidden" name="as_sitesearch" value="${data.site.searchUrl || data.site.url}">
                         <input type="text" name="q" results="0" placeholder="" class="search-input">
                     </form>
                 </li>
