@@ -1,0 +1,6 @@
+{
+    "renderer": "./index",
+    "preserveWhitespace": true,
+    "@lang": "string",
+    "@wrap": "boolean"
+}

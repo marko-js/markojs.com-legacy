@@ -3,17 +3,11 @@ var markdownAnchorName = require('./markdown-anchor-name');
 var markdownTOC = require('./markdown-toc');
 
 marked.setOptions({
-    highlight: function (code, lang) {
-        if (lang) {
-            return require('highlight.js').highlight(lang, code).value;
-        } else {
-            return require('highlight.js').highlightAuto(code).value;
-        }
-
-    }
+    highlight: require('src/util/highlight')
 });
 
 var tocRegExp = /^.*\{TOC\}.*$/im;
+
 
 exports.render = function renderMarkdown(markdown) {
 
