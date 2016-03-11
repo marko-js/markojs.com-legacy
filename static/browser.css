@@ -431,7 +431,7 @@ Google Code style (c) Aahan Krish <geekpanth3r@gmail.com>
   font-weight: bold;
 }
 .mto {
-    position: relative;
+
 }
 
 .mto h2 {
@@ -446,8 +446,18 @@ Google Code style (c) Aahan Krish <geekpanth3r@gmail.com>
     left: 0px;
     top: 0px;
     width: 200px;
+    bottom: 0px;
     padding: 10px;
-    text-align: center;
+    text-align: left;
+    overflow: auto;
+}
+
+.mto-categories h2 {
+    font-size: 14px;
+    line-height: 27px;
+    color: #317eac;
+    font-weight: bold;
+    padding-bottom: 0px;
 }
 
 .mto-btn {
@@ -467,7 +477,7 @@ Google Code style (c) Aahan Krish <geekpanth3r@gmail.com>
     color: #369bd7;
 }
 
-.mto-btn-active {
+.mto-btn.active {
     color: #fff;
     background-color: #369bd7;
 }
@@ -480,6 +490,13 @@ Google Code style (c) Aahan Krish <geekpanth3r@gmail.com>
 
 .mto-sample-btn {
     display: inline-block;
+}
+
+.mto-sample-navs {
+    margin-bottom: 5px;
+    height: 2.2em;
+    position: relative;
+    overflow: hidden;
 }
 
 .mto-sample-navs {
@@ -510,19 +527,25 @@ Google Code style (c) Aahan Krish <geekpanth3r@gmail.com>
     opacity: 0;
 }
 
-.mto-sample-nav-active {
+.mto-sample-nav.active {
     top: 0%;
     visibility: visible;
     opacity: 1;
-    /* animation-duration: 3s;
-    animation-name: slidein; */
 }
 
-.try-marko-container {
+.right-col {
     position: absolute;
     left: 200px;
     right: 0px;
     top: 0px;
+    bottom: 0px;
+}
+
+.try-container {
+    position: absolute;
+    left: 0px;
+    right: 0px;
+    top: 10px;
     bottom: 0px;
 }
 /* BASICS */
@@ -884,6 +907,82 @@ span.CodeMirror-selectedtext { background: none; }
 .app-codemirror.app-codemirror-fullscreen {
     height: 100%;
 }
+.app-tabs .tab {
+
+}
+
+.app-tabs ul.tab-nav {
+    padding-left: 0;
+    list-style: none;
+    margin-left: 10px;
+}
+
+.app-tabs ul.tab-nav > li {
+    float: left;
+}
+
+.app-tabs ul.tab-nav > li > a {
+    margin-right: 2px;
+    line-height: 1.42857143;
+    border: 1px solid #2073bc;
+    margin-left: 10px;
+    border-radius: 4px 4px 0 0;
+    padding-left: 1em;
+    padding-right: 1em;
+    vertical-align: middle;
+    display: inline-block;
+    margin-bottom: -1px;
+    background-color: #2073bc;
+    color: #ecf0f1;
+    position: relative;
+    z-index: 2;
+}
+
+.app-tabs ul.tab-nav > li:first-child > a {
+    margin-left: 0px;
+}
+
+.app-tabs .tab.active > a {
+    background-color: transparent;
+    border-bottom: 1px solid white;
+    color: inherit;
+}
+
+.app-tabs .tab-panes {
+    clear: both;
+
+}
+
+.app-tabs .tab-pane {
+    display: none;
+    border: 1px solid #2073bc;
+    padding: 1em;
+}
+
+.app-tabs .tab-pane.active {
+    display: block;
+}
+
+.app-tabs.full-screen ul.tab-nav > li > a {
+    line-height: 32px;
+}
+
+.app-tabs.full-screen .tab-pane {
+    position: absolute;
+    top: 33px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    overflow: auto;
+    z-index: 1;
+    display: block;
+    visibility: hidden;
+}
+
+
+.app-tabs.full-screen .tab-pane.active {
+    visibility: visible;
+}
 .data-ctr {
     width: 50%;
     float: left;
@@ -902,20 +1001,124 @@ span.CodeMirror-selectedtext { background: none; }
     bottom: 0px;
 }
 
-.mto-col-input {
+.input-col {
     position: absolute;
     left: 0px;
     width: 50%;
+    top: 0px;
+    bottom: 10px;
+    overflow: auto;
 }
 
-.mto-col-output {
+.output-col {
     position: absolute;
+    top: 0px;
+    left: 50%;
+    right: 10px;
+    bottom: 0px;
+}
+
+.top {
+    position: absolute;
+    z-index: 1000;
+    top: 0px;
+    left: 10px;
+    height: 40%;
     right: 0px;
-    width: 50%;
-    padding-left: 10px;
+}
+
+.middle {
+    position: absolute;
+    top: 41%;
+    left: 10px;
+    height: 25%;
+    right: 0px;
+}
+
+.bottom {
+    position: absolute;
+    top: 67%;
+    left: 10px;
+    bottom: 10px;
+    right: 0px;
+    padding: 10px;
+}
+
+.output-ctr {
+    position: absolute;
+    top: 53px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    overflow: auto;
+}
+
+.errors-ctr {
+    position: absolute;
+    top: 53px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    overflow: auto;
+    display: none;
+}
+
+.has-errors .hide-if-errors {
+    display: none;
+}
+
+.has-errors .errors-wrapper {
+    display: block;
+}
+
+.errors-wrapper.align-below {
+    position: absolute;
+    left: 0px;
+    top: 100%;
+    width: 100%;
+    z-index: 1000;
+}
+
+.errors-wrapper.align-bottom {
+    position: absolute;
+    left: 0px;
+    bottom: 0px;
+    overflow: auto;
+    width: 100%;
+    z-index: 1000;
+    opacity: .8;
+}
+
+.errors {
+    border: 1px solid #2073bc;
+}
+
+.editor-wrapper {
+    height: 100%;
+    width: 100%;
+}
+
+.app-tabs.full-screen .tab-pane {
+    overflow: visible;
 }
 
 .mto-tile {
+}
+
+.app-try-marko-widgets .CodeMirror-scroll {
+    height: 100%; overflow-y: auto; overflow-x: auto;
+}
+
+.app-try-marko-widgets .CodeMirror {
+    height: 100%;
+}
+
+.mto-tile-javascript .code-ctr {
+    position: absolute;
+    top: 50px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
 }
 
 .mto-tile-template {
@@ -926,8 +1129,8 @@ span.CodeMirror-selectedtext { background: none; }
 
 }
 
-.mto-tile-mto-options {
-    display: none;
+.mto-tile-mto-input {
+
 }
 
 .mto-tile-output {
@@ -938,44 +1141,13 @@ span.CodeMirror-selectedtext { background: none; }
 
 }
 
-
-.mto-html-viewer {
-    border: 1px solid #c0c0c0;
-    padding: 3px;
-    margin-top: 5px;
-    background-color: #f7f7f7;
-}
-
 .app-try-marko-inline .cols-ctr {
     position: relative;
 }
 
-.app-try-marko-inline.inline {
-    background-color: #444;
-    padding: 1em;
-    margin-top: 2em;
-    margin-bottom: 2em;
-}
-
-
-.app-try-marko-inline.inline h2 {
-    font-size: 15px;
-    padding-bottom: 3px;
-    color: #fdb725;
-}
-
-.app-try-marko-inline.inline .mto-col-input {
-    position: relative;
-    float: left;
-    width: 50%;
-    padding-right: 10px;
-}
-
-.app-try-marko-inline.inline .mto-col-output {
-    position: relative;
-    float: left;
-    width: 50%;
-    padding-left: 10px;
+.output-ctr button {
+    font-size: 16px;
+    padding: 5px;
 }
 .errors {
     width: 100%;

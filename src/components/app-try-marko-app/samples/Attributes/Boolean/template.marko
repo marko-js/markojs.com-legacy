@@ -1,14 +1,8 @@
-<select>
-    <option value="${option.value}"
-        selected="${option.selected}"
-        for="option in data.options">
+select
+    option [ value=option.value selected=option.selected
+        for(option in data.options) ]
 
-        ${option.value}
-
-    </option>
-</select>
-
-
-<input type="checkbox" checked="${data.checked}">
-
-<button disabled>Button</button>
+        - ${option.value}
+input type="checkbox" checked=data.checked
+button disabled
+    - Button

@@ -1,19 +1,12 @@
-<div if="data.age lt 50">
-    You are less than 50 years old!
-</div>
-<div else-if="data.age eq 50">
-    You are 50 years old
-</div>
-<div else>
-    You are over 50!
-</div>
-
-<if test="data.age lt 50">
-    You are less than 50 years old!
-</if>
-<else-if test="data.age eq 50">
-    You are 50 years old
-</else-if>
-<else>
-    You are over 50!
-</else>
+div if(data.age < 50)
+    - You are less than 50 years old!
+div else-if(data.age === 50)
+    - You are 50 years old
+div else
+    - You are over 50!
+if(data.age < 50)
+    - You are less than 50 years old!
+else-if(data.age === 50)
+    - You are 50 years old
+else
+    - You are over 50!

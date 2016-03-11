@@ -1,26 +1,24 @@
-<div>
-
+div
+    ---
     The starting whitespace will be removed
     extra whitespace    will be normalized
-    <a href="#">
-        No whitespace!
-    </a>
-    Trailing whitespace will be removed
-
-</div>
-
-<div c-space="preserve">
-This
-    whitespace will
-be preserved.
-</div>
-
-<pre>
-By default, pre tags have
-their whitespace preserved
-</pre>
-
-<textarea>
-Same for
-text areas!
-</textarea>
+    ---
+    a href="#"
+        - No whitespace!
+    - Trailing whitespace will be removed
+div marko-preserve-whitespace
+    ---
+    This
+        whitespace will
+    be preserved.
+    ---
+pre
+    ---
+    By default, pre tags have
+    their whitespace preserved
+    ---
+textarea
+    ---
+    Same for
+    text areas!
+    ---

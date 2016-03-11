@@ -1,27 +1,17 @@
-<div class="mto" w-bind>
-    <div class="mto-categories">
-        <div for="category in data.samples.categories">
-            <h2>${category.name}</h2>
-            <div class="category-samples">
-                <button type="button"
-                    w-id="sampleButton${sample.id}"
-                    data-sample-id="$sample.id"
-                    class="mto-btn mto-sample-btn"
+div class="mto" w-bind
+    div class="mto-categories"
+        div for(category in data.samples.categories)
+            h2
+                - ${category.name}
+            div class="category-samples"
+                button [ type="button" w-id="sampleButton${sample.id}"
+                    data-sample-id=sample.id class="mto-btn mto-sample-btn"
                     w-onClick="handleSampleButtonClick"
-                    for="sample in category.samples">
+                    for(sample in category.samples) ]
 
-                    $sample.name
-
-                </button>
-            </div>
-        </div>
-        <a href="/">
-            <img src="/images/logo.png" width="100" height="100" alt="Marko"/>
-        </a>
-    </div>
-    <div class="right-col">
-        <div class="try-container">
-            <app-try-marko-widgets w-id="tryMarkoWidgets" />
-        </div>
-    </div>
-</div>
+                    - ${sample.name}
+        a href="/"
+            img src="/images/logo.png" width="100" height="100" alt="Marko"
+    div class="right-col"
+        div class="try-container"
+            app-try-marko-widgets w-id="tryMarkoWidgets"

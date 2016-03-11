@@ -1,4 +1,4 @@
-<h1>User Info</h1>
-<async-fragment data-provider="data.userDataProvider" var="user">
-    Hello $user.firstName $user.lastName! You are $user.age years old.
-</async-fragment>
+h1
+    - User Info
+async-fragment data-provider=data.userDataProvider var="user"
+    - Hello ${user.firstName} ${user.lastName}! You are ${user.age} years old.

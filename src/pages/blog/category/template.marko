@@ -1,25 +1,17 @@
-<lasso-page package-path="./browser.json"/>
-
-<var name="site" value="data.site"/>
-<var name="util" value="data.util"/>
-
-<layout-use template="src/layouts/blog/template.marko" site="${data.site}">
-    <layout-put into="title">${data.category.title}</layout-put>
-    <layout-put into="body">
-        <h1>
-            Posts Related to ${data.category.title}
-        </h1>
-        <section class="post" for="post in data.posts">
-            <h3 class="post-title">
-                <a href="${site.postUrl(post)}">
-                    ${post.title}
-                </a> <span class="separator">
-                    &middot;
-                </span> <span class="date">
-                    ${util.formatDate(post.date)}
-                </span>
-            </h3>
-        </section>
-
-    </layout-put>
-</layout-use>
+lasso-page package-path="./browser.json"
+var site=data.site
+var util=data.util
+layout-use("src/layouts/blog/template.marko") site=data.site
+    layout-put into="title"
+        - ${data.category.title}
+    layout-put into="body"
+        h1
+            - Posts Related to ${data.category.title}
+        section class="post" for(post in data.posts)
+            h3 class="post-title"
+                a href=site.postUrl(post)
+                    - ${post.title}
+                span class="separator"
+                    - &middot;
+                span class="date"
+                    - ${util.formatDate(post.date)}

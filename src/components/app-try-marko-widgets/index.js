@@ -11,10 +11,11 @@ var isObjectEmpty = require('raptor-util/isObjectEmpty');
 
 var TransformHelper = require('marko-widgets/taglib/TransformHelper');
 TransformHelper.prototype.getDefaultWidgetModule = function() {
-    if (this.template.dirname === '/try-online') {
+    var dirname = this.dirname;
+
+    if (this.dirname === '/try-online') {
         return '/try-online/index';
     } else {
-        var dirname = this.template.dirname;
 
         try {
             require.resolve(nodePath.join(dirname, 'widget'));
@@ -36,7 +37,7 @@ function loadCompiler(callback) {
 
         require('raptor-loader').async(function() {
             var compiler = require('marko/compiler');
-            compiler.taglibs.registerTaglib(require.resolve('marko-widgets/marko-taglib.json'));
+            compiler.registerTaglib(require.resolve('marko-widgets/marko.json'));
             compilerAsyncValue.resolve(compiler);
         });
     }

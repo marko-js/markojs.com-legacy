@@ -146,7 +146,8 @@ module.exports = require('marko-widgets').defineComponent({
             data: sample.data,
             options: sample.options,
             autoFormat: sample.autoFormat === true,
-            compilerOptions: compilerOptions
+            compilerOptions: compilerOptions,
+            syntax: sample.syntax
         });
 
         if (this.changeHash !== false) {

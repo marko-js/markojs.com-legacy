@@ -1,28 +1,13 @@
-<style>
-.section {border: 1px solid Black; margin: 5px; padding: 5px; }
-</style>
-
-<def function="section(title,url,body)" body-param="body">
-    <div class="section">
-        <h2>
-            <a href="$url">$title</a>
-        </h2>
-        <p>$body</p>
-    </div>
-</def>
-
-<invoke function="section"
-    title="Neil Armstrong"
-    url="http://en.wikipedia.org/wiki/Neil_Armstrong">
-
-    American astronaut and the first person to walk on the Moon
-
-</invoke>
-
-<invoke function="section"
-    title="Ernest Hemingway"
-    url="http://en.wikipedia.org/wiki/Hemingway">
-
-    American author and journalist.
-
-</invoke>
+style
+    - .section {border: 1px solid Black; margin: 5px; padding: 5px; }
+macro section(title, url)
+    div class="section"
+        h2
+            a href=url
+                macro-body
+        p
+            macro-body
+section title="Neil Armstrong" url="http://en.wikipedia.org/wiki/Neil_Armstrong"
+    - American astronaut and the first person to walk on the Moon
+section title="Ernest Hemingway" url="http://en.wikipedia.org/wiki/Hemingway"
+    - American author and journalist.

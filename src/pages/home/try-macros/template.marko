@@ -1,11 +1,9 @@
-<style>.greeting { font-size: 120% }</style>
-
-<def function="greeting(name,color)">
-    <div class="greeting" style="background-color: $color">Hello $name!</div>
-</def>
-
+style
+    - .greeting { font-size: 120% }
+macro greeting(name,color)
+    div class="greeting" style="background-color: ${color}"
+        - Hello ${name}!
 <!-- Macros can be invoked using the <invoke> tag -->
-<invoke function="greeting" name="World" color="green"/>
-
+greeting name="World" color="green"
 <!-- Or, macros can be invoked as a function call in an expression -->
-${greeting('Frank', 'yellow')}
+greeting('Frank', 'yellow')

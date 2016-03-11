@@ -9,12 +9,16 @@ module.exports = require('marko-widgets').defineComponent({
      * template data should be based on the current widget state
      * that is passed in as the first argument
      */
-    getTemplateData: function(state, input) {
-        return {
-            greetingName: input.greetingName
-        };
-    },
+     getTemplateData: function(state, input) {
+         var clickCount = input.clickCount || 0;
+         var timesMessage = clickCount === 1 ? 'time' : 'times';
 
+         return {
+             greetingName: input.greetingName,
+             clickCount: clickCount,
+             timesMessage: timesMessage
+         };
+     },
     /**
      * This is the constructor for the widget. Called once when
      * the widget is first added to the DOM.

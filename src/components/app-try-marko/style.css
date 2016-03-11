@@ -91,3 +91,46 @@
     width: 50%;
     padding-left: 10px;
 }
+
+.syntax-chooser {
+    position: absolute;
+    right: 0px;
+}
+
+.syntax-chooser .syntax-label {
+    font-weight: bold;
+}
+
+.syntax-chooser .button-group button {
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+    margin: 0px;
+    outline: none;
+    padding: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    border: 0px;
+    font-size: 14px;
+    line-height: 18px;
+    background-color: #f7f7f7;
+    color: #369bd7;
+    border: 1px solid #369bd7;
+}
+
+.syntax-chooser .button-group button:first-child {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: 0;
+}
+
+.syntax-chooser .button-group button:last-child {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 0;
+}
+
+.syntax-chooser .button-group button.active {
+    color: #fff;
+    background-color: #369bd7;
+}

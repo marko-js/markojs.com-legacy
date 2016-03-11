@@ -1,10 +1,6 @@
-Hello ${data.name}!
-
-<ul if="notEmpty(data.colors)">
-    <li for="color in data.colors">
-        ${color}
-    </li>
-</ul>
-<div else>
-    No colors!
-</div>
+- Hello ${data.name}!
+ul if(notEmpty(data.colors))
+    li for(color in data.colors)
+        - ${color}
+div else
+    - No colors!

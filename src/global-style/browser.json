@@ -1,7 +1,8 @@
 {
     "dependencies": [
         "./global.css",
-        "./highlight.js/monokai_sublime.css",
+        "./atom-light-syntax.css",
+        "./marko-syntax.css",
         "//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css"
     ]
 }

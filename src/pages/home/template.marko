@@ -1,77 +1,73 @@
-<lasso-page package-path="./browser.json" />
-
-<var name="site" value="data.site"/>
-
-<layout-use template="src/layouts/default/template.marko" site="${site}" active-section="home">
-    <layout-put into="title">Marko - Template engine + UI Components</layout-put>
-    <layout-put into="body">
-        <div class="hero-bg">
-            <div class="container">
-                <div class="hero">
-                    <img src="/images/logo-large.png" alt="Marko" class="hero-img"/>
-                    <h2>
-                        A high performance templating engine and UI component layer
-                    </h2>
-                </div>
-            </div>
-        </div>
-        <div class="container">
-            <main>
-                <section class="marketing">
-                    <div class="marketing-col">
-                        <h3>
-                            <a href="/docs">
-                                Marko: HTML Templating
-                            </a>
-                        </h3>
-                        <p>
+lasso-page package-path="./browser.json"
+var site=data.site
+layout-use("src/layouts/default/template.marko") site=site active-section="home"
+    layout-put into="title"
+        - Marko - Template engine + UI Components
+    layout-put into="body"
+        div class="hero-bg"
+            div class="container"
+                div class="hero"
+                    img src="/images/logo-large.png" alt="Marko" class="hero-img"
+                    h2
+                        - A high performance templating engine and UI component layer
+        div class="container"
+            main
+                section class="marketing"
+                    div class="marketing-col"
+                        h3
+                            a href="/docs"
+                                - Marko: HTML Templating
+                        p
+                            ---
                             Marko is a fast and lightweight HTML-based templating engine that compiles
                             templates to readable Node.js-compatible JavaScript modules, and it works on the server
                             and in the browser. It supports streaming, async rendering and custom tags.
-                        </p>
-                        <a href="/try-online/" target="_blank" class="try-online">
-                            Try Marko Online! <lasso-img src="src/assets/new-window.svg" width="16" height="16"/>
-                        </a>
-                        <p>
-                            <pre>npm install marko</pre>
-                        </p>
-                    </div>
-                    <div class="marketing-col">
-                        <h3>
-                            <a href="/docs/marko-widgets/">
-                                Marko Widgets: UI Components
-                            </a>
-                        </h3>
-                        <p>
+                            ---
+                        a href="/try-online/" target="_blank" class="try-online"
+                            - Try Marko Online!
+                            lasso-img [ src="src/assets/new-window.svg" width="16"
+                                height="16" ]
+                        p
+                            pre
+                                - npm install marko
+                    div class="marketing-col"
+                        <style>
+                        .foo {
+
+                        }
+                        </style>
+                        h3
+                            a href="/docs/marko-widgets/"
+                                - Marko Widgets: UI Components
+                        p
+                            ---
                             Marko Widgets is lightweight UI component layer that sits on top of Marko.
                             It offers advanced features like DOM-diffing, batched updates, stateful widgets,
                             declarative event binding and efficient event delegation.
-                        </p>
-                        <a href="/marko-widgets/try-online/" target="_blank" class="try-online">
-                            Try Marko Widgets Online! <lasso-img src="src/assets/new-window.svg" width="16" height="16"/>
-                        </a>
-                        <p>
-                            <pre>npm install marko-widgets</pre>
-                        </p>
-                    </div>
-                </section>
-                <div style="clear: both"/>
+                            ---
+                        a [ href="/marko-widgets/try-online/" target="_blank"
+                            class="try-online" ]
 
-                <div class="videos">
-                    <iframe width="560" height="315"
+                            - Try Marko Widgets Online!
+                            lasso-img [ src="src/assets/new-window.svg" width="16"
+                                height="16" ]
+                        p
+                            pre
+                                - npm install marko-widgets
+                div style="clear: both"
+                div class="videos"
+                    iframe [ width="560" height="315"
                         src="https://www.youtube.com/embed/kCXs9ig8vTI"
-                        frameborder="0"
-                        allowfullscreen></iframe>
-                    <div>
-                        <a href="https://www.youtube.com/playlist?list=PLZUgs-F38XXQJBxA58UqnwTVMZS_uza_C" target="_blank">
-                            More Screencasts
-                        </a>
-                    </div>
-                </div>
+                        frameborder="0" allowfullscreen ]
+                    div
+                        a [ href="https://www.youtube.com/playlist?list=PLZUgs-F38XXQJBxA58UqnwTVMZS_uza_C"
+                            target="_blank" ]
 
+                            - More Screencasts
 
-                <!-- <app-try-marko-inline path="./try-simple"/> -->
-            </main>
-        </div>
-    </layout-put>
-</layout-use>
+                hr
+                p
+                    ---
+                    If you are looking for Marko v2 docs, please see:
+                    <a href="http://marko-v2.github.io/">Legacy Documentation: Marko v2</a>
+                    ---

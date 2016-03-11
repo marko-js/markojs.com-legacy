@@ -20,3 +20,21 @@ h1 .subtitle {
         margin-left: 0px;
     }
 }
+
+@media print {
+    .docs-nav {
+        display: none;
+    }
+
+    main {
+        margin-left: 0;
+    }
+
+    header {
+        display: none;
+    }
+
+    .gitter-open-chat-button {
+        display: none;
+    }
+}

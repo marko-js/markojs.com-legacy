@@ -1,8 +1,11 @@
 require('./style.css');
 
 var AsyncValue = require('raptor-async/AsyncValue');
-
 var compilerAsyncValue = null;
+
+var removeClass = require('dom-classes').remove;
+var addClass = require('dom-classes').add;
+var markoPrettyprint = require('marko-prettyprint');
 
 function loadCompiler(callback) {
     if (!compilerAsyncValue) {
@@ -10,7 +13,7 @@ function loadCompiler(callback) {
 
         require('raptor-loader').async(function() {
             var compiler = require('marko/compiler');
-            compiler.taglibs.registerTaglib(require.resolve('./test-taglib/marko-taglib.json'));
+            compiler.registerTaglib(require.resolve('./test-taglib/marko.json'));
             compilerAsyncValue.resolve(compiler);
         });
     }
@@ -56,7 +59,8 @@ module.exports = require('marko-widgets').defineComponent({
     template: require('./template.marko'),
     getWidgetConfig: function(input) {
         return {
-            inline: input.inline === true
+            inline: input.inline === true,
+            syntax: input.syntax || 'html'
         };
     },
     getTemplateData: function(state, input) {
@@ -65,6 +69,7 @@ module.exports = require('marko-widgets').defineComponent({
         var templateCode = input.templateCode;
         var compiledCode = input.compiledCode;
         var htmlCode = input.htmlCode;
+        var syntax = input.syntax || 'html';
 
         return {
             templateNav: templateNav,
@@ -72,7 +77,8 @@ module.exports = require('marko-widgets').defineComponent({
             templateCode: templateCode,
             compiledCode: compiledCode,
             htmlCode: htmlCode,
-            inline: input.inline === true
+            inline: input.inline === true,
+            syntax: syntax
         };
     },
 
@@ -81,6 +87,7 @@ module.exports = require('marko-widgets').defineComponent({
         this.compileRequired = true;
         this.renderRequired = true;
         this.inline = widgetConfig.inline === true;
+        this.syntax = widgetConfig.syntax || 'html';
 
         this.editorsState = {
             data: null,
@@ -106,6 +113,11 @@ module.exports = require('marko-widgets').defineComponent({
         var data = options.data;
         var compilerOptions = options.compilerOptions;
         var autoFormat = options.autoFormat === true;
+        var sampleSyntax = options.syntax;
+
+        if (sampleSyntax !== this.syntax) {
+            template = markoPrettyprint(template, { syntax: this.syntax, filename: 'template.marko' });
+        }
 
         this.getWidget('outputEditor').setAutoFormat(autoFormat);
         this.halt = true;
@@ -122,6 +134,26 @@ module.exports = require('marko-widgets').defineComponent({
         this.halt = false;
 
         this.update();
+    },
+
+    setSyntax: function(syntax) {
+        if (this.syntax !== syntax) {
+            this.syntax = syntax;
+
+            removeClass(this.getEl('htmlSyntaxButton'), 'active');
+            removeClass(this.getEl('conciseSyntaxButton'), 'active');
+
+            if (syntax === 'html') {
+                addClass(this.getEl('htmlSyntaxButton'), 'active');
+            } else {
+                addClass(this.getEl('conciseSyntaxButton'), 'active');
+            }
+        }
+
+        var templateSrc = this.getWidget('templateEditor').getValue();
+        templateSrc = markoPrettyprint(templateSrc, { syntax: this.syntax, filename: 'template.marko' });
+
+        this.getWidget('templateEditor').setValue(templateSrc);
     },
 
     handleEditorException: function(errorsWidget, e) {
@@ -274,5 +306,13 @@ module.exports = require('marko-widgets').defineComponent({
         if (this.autoRender) {
             this.update();
         }
+    },
+
+    handleHtmlSyntxButtonClick: function() {
+        this.setSyntax('html');
+    },
+
+    handleConciseSyntxButtonClick: function() {
+        this.setSyntax('concise');
     }
 });

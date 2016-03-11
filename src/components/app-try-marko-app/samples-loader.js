@@ -1,7 +1,7 @@
 var fs = require('fs');
 var nodePath = require('path');
 
-function Sample(name, template, data, options, sampleConfig) {
+function Sample(name, template, data, options, sampleConfig, syntax) {
     sampleConfig = sampleConfig || {};
 
     this.id = null;
@@ -10,6 +10,7 @@ function Sample(name, template, data, options, sampleConfig) {
     this.data = data;
     this.options = options;
     this.autoFormat = sampleConfig.autoFormat !== false;
+    this.syntax = syntax;
 }
 
 function Category(name) {
@@ -114,7 +115,26 @@ exports.load = function() {
             var sampleDir = nodePath.join(categoryDir, sampleName);
 
             var dataPath = nodePath.join(sampleDir, 'data.js');
-            var templatePath = nodePath.join(sampleDir, 'template.marko');
+            var templatePath;
+            var syntax;
+
+            templatePath = nodePath.join(sampleDir, 'template.marko');
+            if (fs.existsSync(templatePath)) {
+                syntax = 'concise';
+            } else {
+                templatePath = nodePath.join(sampleDir, 'template.concise.marko');
+                if (fs.existsSync(templatePath)) {
+                    syntax = 'concise';
+                } else {
+                    templatePath = nodePath.join(sampleDir, 'template.html.marko');
+                    if (fs.existsSync(templatePath)) {
+                        syntax = 'html';
+                    } else {
+                        throw new Error('Missing template for sample "' + sampleDir + '"');
+                    }
+                }
+            }
+
             var optionsPath = nodePath.join(sampleDir, 'options.js');
             var sampleConfigPath = nodePath.join(sampleDir, 'sample.json');
 
@@ -147,7 +167,7 @@ exports.load = function() {
                 sampleConfig = JSON.parse(sampleConfigJSON);
             }
 
-            var sample = new Sample(sampleName, template, data, options, sampleConfig);
+            var sample = new Sample(sampleName, template, data, options, sampleConfig, syntax);
             category.addSample(sample);
         });
     });

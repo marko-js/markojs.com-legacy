@@ -29,6 +29,7 @@ exports.readFile = function(file, options) {
     }
 
     var fm = frontMatter(markdown);
+
     var attributes = fm.attributes || {};
 
     var titleSummaryMatches = titleSummaryRegExp.exec(fm.body);

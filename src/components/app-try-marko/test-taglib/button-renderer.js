@@ -1,4 +1,4 @@
-var template = require('marko').load(require.resolve('./button.marko'));
+var template = require('./button.marko');
 
 module.exports = function(input, out) {
     var attrs = {};

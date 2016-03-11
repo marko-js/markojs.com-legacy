@@ -1,14 +1,6 @@
-<p>
-    <include template="${window.testTemplate}"
-        name="Frank"
-        count="30"/>
-</p>
-<p>
-    <include template="${window.testTemplate}"
-        name="John"
-        count="${10}"/>
-</p>
-<p>
-    <include template="${window.testTemplate}"
-        template-data="data.greetingData"/>
-</p>
+p
+    include("${window.testTemplate}") name="Frank" count="30"
+p
+    include("${window.testTemplate}") name="John" count=10
+p
+    include("${window.testTemplate}", data.greetingData)

@@ -1,17 +1,14 @@
+var Highlights = require('highlights');
+var highlighter = new Highlights();
+
+highlighter.registry.loadGrammarSync(require.resolve('src/atom-grammars/css.cson'));
+highlighter.registry.loadGrammarSync(require.resolve('src/atom-grammars/javascript.cson'));
+highlighter.registry.loadGrammarSync(require.resolve('src/atom-grammars/html.cson'));
+highlighter.registry.loadGrammarSync(require.resolve('src/atom-grammars/marko.cson'));
+
 var marked = require('marked');
 var markdownAnchorName = require('./markdown-anchor-name');
 var markdownTOC = require('./markdown-toc');
-
-marked.setOptions({
-    highlight: function (code, lang) {
-        if (lang) {
-            return require('highlight.js').highlight(lang, code).value;
-        } else {
-            return require('highlight.js').highlightAuto(code).value;
-        }
-
-    }
-});
 
 var tocRegExp = /^.*\{TOC\}.*$/im;
 
@@ -63,6 +60,25 @@ exports.render = function renderMarkdown(markdown) {
                          anchorName +
                          '"><span class="header-link"></span></a>' +
                           text + '</h' + level + '>';
+    };
+
+    markedRenderer.code = function(code, lang, escaped) {
+        var scopeName;
+
+        if (lang === 'js' || lang === 'javascript') {
+            scopeName = 'source.js';
+        } else if (lang === 'css') {
+            scopeName = 'source.css';
+        } else if (lang === 'html') {
+            scopeName = 'text.html.basic';
+        } else if (lang === 'xml' || lang === 'marko') {
+            scopeName = 'text.marko';
+        }
+
+        return highlighter.highlightSync({
+            fileContents: code,
+            scopeName: scopeName
+        });
     };
 
     var html = marked(markdown, {

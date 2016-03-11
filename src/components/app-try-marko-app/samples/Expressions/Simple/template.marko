@@ -1,25 +1,2 @@
-<!--
-Valid JavaScript expressions are allowed wherever expressions can be used
-within a template. However, because templates must be well-formed XML you
-will have problems if you try to use unescaped less than ("<") and
-ampersand ("&") characters as part of an expression since those characters
-are special XML characters and would break parsing. You can choose to
-escape the special characters (i.e. "&lt;" for "<" and "&amp;" for "&") or,
-preferably, you can choose to use any of the following equivalent binary
-operators supported by Marko:
-
-JavaScript  Marko
-Operator    Equivalent
-==========  ==========
-&&          and
-||          or
-===         eq
-!==         ne
-<           lt
->           gt
->=          ge
-<=          le
--->
-<if test="data.age eq 50 or data.age === 52">
-    Age is 50 or 52
-</if>
+if((data.age === 50) || (data.age === 52))
+    - Age is 50 or 52

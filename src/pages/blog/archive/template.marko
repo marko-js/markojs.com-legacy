@@ -1,41 +1,26 @@
-<lasso-page package-path="./browser.json"/>
-
-<var name="site" value="data.site"/>
-<var name="util" value="data.util"/>
-<var name="prevYear"/>
-
-<layout-use template="src/layouts/blog/template.marko" site="${site}">
-    <layout-put into="title">Archive | ${site.title}</layout-put>
-    <layout-put into="body">
-
-        <article role="article">
-            <header>
-                <h1 class="entry-title">Blog Archive</h1>
-            </header>
-            <div id="blog-archives">
-                <table class="archive">
-                    <tbody>
-                        <tr for="post in data.posts" class="{?post.date.getYear() !== prevYear;year-separator}">
-                            <td class="archive-year">
-                                <h1 if="post.date.getYear() !== prevYear">
-                                    ${post.date.getFullYear()}
-                                </h1>
-                            </td>
-                            <td class="archive-date">
-                                <time datetime="${util.machineDate(post.date)}" pubdate="">
-                                    ${util.formatMonthDay(post.date)}
-                                </time>
-                            </td>
-                            <td class="archive-title">
-                                <a href="${site.postUrl(post)}">
-                                    ${post.title}
-                                </a>
-                            </td>
-
-                            <assign var="prevYear" value="post.date.getYear()"/>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-    </layout-put>
-</layout-use>
+lasso-page package-path="./browser.json"
+var site=data.site
+var util=data.util
+var prevYear
+layout-use("src/layouts/blog/template.marko") site=site
+    layout-put into="title"
+        - Archive | ${site.title}
+    layout-put into="body"
+        article role="article"
+            header
+                h1 class="entry-title"
+                    - Blog Archive
+            div id="blog-archives"
+                table class="archive"
+                    tbody
+                        tr for(post in data.posts) class=(post.date.getYear() !== prevYear ? "year-separator" : "")
+                            td class="archive-year"
+                                h1 if(post.date.getYear() !== prevYear)
+                                    - ${post.date.getFullYear()}
+                            td class="archive-date"
+                                time datetime=util.machineDate(post.date) pubdate
+                                    - ${util.formatMonthDay(post.date)}
+                            td class="archive-title"
+                                a href=site.postUrl(post)
+                                    - ${post.title}
+                            assign prevYear=post.date.getYear()

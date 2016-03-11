@@ -1,78 +1,42 @@
-<div class="app-try-marko-widgets" w-bind>
-    <layout-use template="./layout-default.marko">
-        <layout-put into="javaScript">
+div class="app-try-marko-widgets" w-bind
+    layout-use("./layout-default.marko")
+        layout-put into="javaScript"
             <!-- JavaScript -->
-            <div class="editor-wrapper" w-id="javaScriptWrapper">
-                <app-codemirror mode="javascript"
-                    theme="default"
-                    auto-resize="false"
-                    code="${data.javaScriptCode}"
-                    fullscreen="true"
+            div class="editor-wrapper" w-id="javaScriptWrapper"
+                app-codemirror [ mode="javascript" theme="default"
+                    auto-resize=false code=data.javaScriptCode fullscreen=true
                     w-onChange="handleJavaScriptEditorChange"
-                    w-id="javaScriptEditor"/>
-                <div class="errors-wrapper align-bottom">
-                    <app-marko-try-online-errors w-id="javaScriptErrors"/>
-                </div>
-            </div>
-        </layout-put>
-
-        <layout-put into="template">
+                    w-id="javaScriptEditor" ]
+                div class="errors-wrapper align-bottom"
+                    app-marko-try-online-errors w-id="javaScriptErrors"
+        layout-put into="template"
             <!-- Template -->
-            <div class="editor-wrapper" w-id="templateWrapper">
-                <app-codemirror mode="htmlmixed"
-                    auto-resize="false"
-                    fullscreen="true"
-                    theme="default"
-                    code="${data.templateCode}"
-                    w-onChange="handleTemplateEditorChange"
-                    w-id="templateEditor"/>
-
-                <div class="errors-wrapper align-below">
-                    <app-marko-try-online-errors w-id="templateErrors"/>
-                <div class="errors-wrapper">
-            </div>
-        </layout-put>
-
-        <layout-put into="input">
+            div class="editor-wrapper" w-id="templateWrapper"
+                app-codemirror [ mode="marko" auto-resize=false fullscreen=true
+                    theme="default" code=data.templateCode
+                    w-onChange="handleTemplateEditorChange" w-id="templateEditor" ]
+                div class="errors-wrapper align-below"
+                    app-marko-try-online-errors w-id="templateErrors"
+                    div class="errors-wrapper"
+        layout-put into="input"
             <!-- Input -->
-            <div class="editor-wrapper" w-id="inputWrapper">
-
-                <app-codemirror mode="javascript"
-                    theme="default"
-                    auto-resize="false"
-                    fullscreen="true"
-                    code="${data.inputCode}"
-                    w-onChange="handleInputEditorChange"
-                    w-id="inputEditor"/>
-
-                <div class="errors-wrapper align-below">
-                    <app-marko-try-online-errors w-id="inputErrors"/>
-                </div>
-            </div>
-        </layout-put>
-
-        <layout-put into="css">
+            div class="editor-wrapper" w-id="inputWrapper"
+                app-codemirror [ mode="javascript" theme="default"
+                    auto-resize=false fullscreen=true code=data.inputCode
+                    w-onChange="handleInputEditorChange" w-id="inputEditor" ]
+                div class="errors-wrapper align-below"
+                    app-marko-try-online-errors w-id="inputErrors"
+        layout-put into="css"
             <!-- CSS -->
-            <div>
-                <app-codemirror mode="css"
-                    theme="default"
-                    auto-resize="false"
-                    fullscreen="true"
-                    w-onChange="handleCssEditorChange"
-                    w-id="cssEditor"/>
-            </div>
-        </layout-put>
-
-        <layout-put into="output">
-            <div w-id="outputWrapper">
+            div
+                app-codemirror [ mode="css" theme="default" auto-resize=false
+                    fullscreen=true w-onChange="handleCssEditorChange"
+                    w-id="cssEditor" ]
+        layout-put into="output"
+            div w-id="outputWrapper"
                 <!-- HTML Output -->
-                <div w-id="htmlViewer" class="output-ctr hide-if-errors" if="!data.inline"></div>
-                <div class="errors-wrapper">
-                    <app-marko-try-online-errors w-id="renderErrors"/>
-                </div>
-            </div>
-        </layout-put>
-
-    </layout-use>
-    <div style="clear: both"/>
-</div>
+                div [ w-id="htmlViewer" class="output-ctr hide-if-errors"
+                    if(!data.inline) ]
+                div class="errors-wrapper"
+                    app-marko-try-online-errors w-id="renderErrors"
+    div style="clear: both"

@@ -14,6 +14,9 @@ https://github.com/joyent/node/blob/master/lib/module.js
         return;
     }
 
+    /** the module runtime */
+    var $rmod;
+
     // this object stores the module factories with the keys being real paths of module (e.g. "/baz@3.0.0/lib/index" --> Function)
     var definitions = {};
 
@@ -132,6 +135,9 @@ https://github.com/joyent/node/blob/master/lib/module.js
 
             // NodeJS provides access to the cache as a property of the "require" function
             instanceRequire.cache = instanceCache;
+
+            // Expose the module system runtime via the `runtime` property
+            instanceRequire.runtime = $rmod;
 
             // $rmod.def("/foo@1.0.0/lib/index", function(require, exports, module, __filename, __dirname) {
             this.exports = {};
@@ -306,6 +312,17 @@ https://github.com/joyent/node/blob/master/lib/module.js
             subpath = '';
             dependencyId = target.substring(start);
         } else {
+            // Fixes https://github.com/raptorjs/raptor-modules/issues/15
+            // Handle scoped packages where scope and package name are separated by a
+            // forward slash (e.g. '@scope/package-name')
+            //
+            // In the case of scoped packages the dependencyId should be the combination of the scope
+            // and the package name. Therefore if the target module begins with an '@' symbol then
+            // skip past the first slash
+            if (target.charAt(start) === '@') {
+                end = target.indexOf('/', end+1);
+            }
+
             // target is something like "/$/foo/$/baz/lib/index" so we need to separate subpath
             // from the dependencyId
 
@@ -363,6 +380,18 @@ https://github.com/joyent/node/blob/master/lib/module.js
         var subpath;
 
         var lastSlashPos = target.indexOf('/');
+
+        // Fixes https://github.com/raptorjs/raptor-modules/issues/15
+        // Handle scoped packages where scope and package name are separated by a
+        // forward slash (e.g. '@scope/package-name')
+        //
+        // In the case of scoped packages the dependencyId should be the combination of the scope
+        // and the package name. Therefore if the target module begins with an '@' symbol then
+        // skip past the first slash
+        if (lastSlashPos !== -1 && target.charAt(0) === '@') {
+            lastSlashPos = target.indexOf('/', lastSlashPos+1);
+        }
+
         if (lastSlashPos === -1) {
             dependencyId = target;
             subpath = '';
@@ -577,14 +606,9 @@ https://github.com/joyent/node/blob/master/lib/module.js
     $rmod.run('/$/installed-module', '/src/foo');
     */
     function run(logicalPath, options) {
-        var wait = true;
-
-        if (options) {
-            wait = options.wait !== false;
-        }
-
+        var wait = !options || (options.wait !== false);
         if (wait && !_ready) {
-            return runQueue.push(arguments);
+            return runQueue.push([logicalPath, options]);
         }
 
         require(logicalPath, '/');
@@ -594,12 +618,27 @@ https://github.com/joyent/node/blob/master/lib/module.js
      * Mark the page as being ready and execute any of the
      * run modules that were deferred
      */
-    function ready(value) {
-        if ((_ready = (value !== false))) {
-            for (var i=0; i<runQueue.length; i++) {
-                run.apply(runQueue, runQueue[i]);
+    function ready() {
+        _ready = true;
+
+        var len;
+        while((len = runQueue.length)) {
+            // store a reference to the queue before we reset it
+            var queue = runQueue;
+
+            // clear out the queue
+            runQueue = [];
+
+            // run all of the current jobs
+            for (var i = 0; i < len; i++) {
+                var args = queue[i];
+                run(args[0], args[1]);
             }
-            runQueue.length = 0;
+
+            // stop running jobs in the queue if we change to not ready
+            if (!_ready) {
+                break;
+            }
         }
     }
 
@@ -607,11 +646,20 @@ https://github.com/joyent/node/blob/master/lib/module.js
         searchPaths.push(prefix);
     }
 
+    var pendingCount = 0;
+    var onPendingComplete = function() {
+        pendingCount--;
+        if (!pendingCount) {
+            // Trigger any "require-run" modules in the queue to run
+            ready();
+        }
+    };
+
     /*
      * $rmod is the short-hand version that that the transport layer expects
      * to be in the browser window object
      */
-    var $rmod = {
+    $rmod = {
         // "def" is used to define a module
         def: define,
 
@@ -624,7 +672,22 @@ https://github.com/joyent/node/blob/master/lib/module.js
         resolve: resolve,
         join: join,
         ready: ready,
-        addSearchPath: addSearchPath
+        addSearchPath: addSearchPath,
+
+        /**
+         * Asynchronous bundle loaders should call `pending()` to instantiate
+         * a new job. The object we return here has a `done` method that
+         * should be called when the job completes. When the number of
+         * pending jobs drops to 0, we invoke any of the require-run modules
+         * that have been declared.
+         */
+        pending: function() {
+            _ready = false;
+            pendingCount++;
+            return {
+                done: onPendingComplete
+            };
+        }
     };
 
     if (win) {
@@ -632,444 +695,9 @@ https://github.com/joyent/node/blob/master/lib/module.js
     } else {
         module.exports = $rmod;
     }
-
 })();
 
-$rmod.main("/src/components/app-try-marko-app", "index");
-$rmod.main("/change-case@2.3.0", "change-case");
-$rmod.dep("", "change-case", "2.3.0");
-$rmod.main("/dot-case@1.1.1", "dot-case");
-$rmod.dep("/$/change-case", "dot-case", "1.1.1");
-$rmod.def("/dot-case@1.1.1/dot-case", function(require, exports, module, __filename, __dirname) { var sentenceCase = require('/$/change-case/$/sentence-case'/*'sentence-case'*/);
-
-/**
- * Dot case a string.
- *
- * @param  {String} string
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (string, locale) {
-  return sentenceCase(string, locale, '.');
-};
-
-});
-$rmod.main("/swap-case@1.1.1", "swap-case");
-$rmod.dep("/$/change-case", "swap-case", "1.1.1");
-$rmod.def("/swap-case@1.1.1/swap-case", function(require, exports, module, __filename, __dirname) { var upperCase = require('/$/change-case/$/upper-case'/*'upper-case'*/)
-var lowerCase = require('/$/change-case/$/lower-case'/*'lower-case'*/)
-
-/**
- * Swap the case of a string. Manually iterate over every character and check
- * instead of replacing certain characters for better unicode support.
- *
- * @param  {String} str
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (str, locale) {
-  if (str == null) {
-    return ''
-  }
-
-  var result = ''
-
-  for (var i = 0; i < str.length; i++) {
-    var c = str[i]
-    var u = upperCase(c, locale)
-
-    result += u === c ? lowerCase(c, locale) : u
-  }
-
-  return result
-}
-
-});
-$rmod.main("/path-case@1.1.1", "path-case");
-$rmod.dep("/$/change-case", "path-case", "1.1.1");
-$rmod.def("/path-case@1.1.1/path-case", function(require, exports, module, __filename, __dirname) { var sentenceCase = require('/$/change-case/$/sentence-case'/*'sentence-case'*/);
-
-/**
- * Path case a string.
- *
- * @param  {String} string
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (string, locale) {
-  return sentenceCase(string, locale, '/');
-};
-
-});
-$rmod.main("/upper-case@1.1.2", "upper-case");
-$rmod.dep("/$/change-case", "upper-case", "1.1.2");
-$rmod.def("/upper-case@1.1.2/upper-case", function(require, exports, module, __filename, __dirname) { /**
- * Special language-specific overrides.
- *
- * Source: ftp://ftp.unicode.org/Public/UCD/latest/ucd/SpecialCasing.txt
- *
- * @type {Object}
- */
-var LANGUAGES = {
-  tr: {
-    regexp: /[\u0069]/g,
-    map: {
-      '\u0069': '\u0130'
-    }
-  },
-  az: {
-    regexp: /[\u0069]/g,
-    map: {
-      '\u0069': '\u0130'
-    }
-  },
-  lt: {
-    regexp: /[\u0069\u006A\u012F]\u0307|\u0069\u0307[\u0300\u0301\u0303]/g,
-    map: {
-      '\u0069\u0307': '\u0049',
-      '\u006A\u0307': '\u004A',
-      '\u012F\u0307': '\u012E',
-      '\u0069\u0307\u0300': '\u00CC',
-      '\u0069\u0307\u0301': '\u00CD',
-      '\u0069\u0307\u0303': '\u0128'
-    }
-  }
-}
-
-/**
- * Upper case a string.
- *
- * @param  {String} str
- * @return {String}
- */
-module.exports = function (str, locale) {
-  var lang = LANGUAGES[locale]
-
-  str = str == null ? '' : String(str)
-
-  if (lang) {
-    str = str.replace(lang.regexp, function (m) { return lang.map[m] })
-  }
-
-  return str.toUpperCase()
-}
-
-});
-$rmod.main("/lower-case@1.1.2", "lower-case");
-$rmod.dep("/$/change-case", "lower-case", "1.1.2");
-$rmod.def("/lower-case@1.1.2/lower-case", function(require, exports, module, __filename, __dirname) { /**
- * Special language-specific overrides.
- *
- * Source: ftp://ftp.unicode.org/Public/UCD/latest/ucd/SpecialCasing.txt
- *
- * @type {Object}
- */
-var LANGUAGES = {
-  tr: {
-    regexp: /\u0130|\u0049|\u0049\u0307/g,
-    map: {
-      '\u0130': '\u0069',
-      '\u0049': '\u0131',
-      '\u0049\u0307': '\u0069'
-    }
-  },
-  az: {
-    regexp: /[\u0130]/g,
-    map: {
-      '\u0130': '\u0069',
-      '\u0049': '\u0131',
-      '\u0049\u0307': '\u0069'
-    }
-  },
-  lt: {
-    regexp: /[\u0049\u004A\u012E\u00CC\u00CD\u0128]/g,
-    map: {
-      '\u0049': '\u0069\u0307',
-      '\u004A': '\u006A\u0307',
-      '\u012E': '\u012F\u0307',
-      '\u00CC': '\u0069\u0307\u0300',
-      '\u00CD': '\u0069\u0307\u0301',
-      '\u0128': '\u0069\u0307\u0303'
-    }
-  }
-}
-
-/**
- * Lowercase a string.
- *
- * @param  {String} str
- * @return {String}
- */
-module.exports = function (str, locale) {
-  var lang = LANGUAGES[locale]
-
-  str = str == null ? '' : String(str)
-
-  if (lang) {
-    str = str.replace(lang.regexp, function (m) { return lang.map[m] })
-  }
-
-  return str.toLowerCase()
-}
-
-});
-$rmod.main("/camel-case@1.2.0", "camel-case");
-$rmod.dep("/$/change-case", "camel-case", "1.2.0");
-$rmod.def("/camel-case@1.2.0/camel-case", function(require, exports, module, __filename, __dirname) { var upperCase = require('/$/change-case/$/upper-case'/*'upper-case'*/)
-var sentenceCase = require('/$/change-case/$/sentence-case'/*'sentence-case'*/)
-
-/**
- * Camel case a string.
- *
- * @param  {String} string
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (string, locale, mergeNumbers) {
-  var result = sentenceCase(string, locale)
-
-  // Replace periods between numeric entities with an underscore.
-  if (!mergeNumbers) {
-    result = result.replace(/(\d) (?=\d)/g, '$1_')
-  }
-
-  // Replace spaces between words with an upper cased character.
-  return result.replace(/ (.)/g, function (m, $1) {
-    return upperCase($1, locale)
-  })
-}
-
-});
-$rmod.main("/snake-case@1.1.1", "snake-case");
-$rmod.dep("/$/change-case", "snake-case", "1.1.1");
-$rmod.def("/snake-case@1.1.1/snake-case", function(require, exports, module, __filename, __dirname) { var sentenceCase = require('/$/change-case/$/sentence-case'/*'sentence-case'*/);
-
-/**
- * Snake case a string.
- *
- * @param  {String} str
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (str, locale) {
-  return sentenceCase(str, locale, '_');
-};
-
-});
-$rmod.main("/title-case@1.1.1", "title-case");
-$rmod.dep("/$/change-case", "title-case", "1.1.1");
-$rmod.def("/title-case@1.1.1/title-case", function(require, exports, module, __filename, __dirname) { var upperCase = require('/$/change-case/$/upper-case'/*'upper-case'*/)
-var sentenceCase = require('/$/change-case/$/sentence-case'/*'sentence-case'*/)
-
-/**
- * Title case a string.
- *
- * @param  {String} string
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (str, locale) {
-  return sentenceCase(str, locale).replace(/^.| ./g, function (m) {
-    return upperCase(m, locale)
-  })
-}
-
-});
-$rmod.main("/param-case@1.1.1", "param-case");
-$rmod.dep("/$/change-case", "param-case", "1.1.1");
-$rmod.def("/param-case@1.1.1/param-case", function(require, exports, module, __filename, __dirname) { var sentenceCase = require('/$/change-case/$/sentence-case'/*'sentence-case'*/);
-
-/**
- * Param case a string.
- *
- * @param  {String} string
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (string, locale) {
-  return sentenceCase(string, locale, '-');
-};
-
-});
-$rmod.main("/pascal-case@1.1.1", "pascal-case");
-$rmod.dep("/$/change-case", "pascal-case", "1.1.1");
-$rmod.def("/pascal-case@1.1.1/pascal-case", function(require, exports, module, __filename, __dirname) { var camelCase = require('/$/change-case/$/camel-case'/*'camel-case'*/)
-var upperCaseFirst = require('/$/change-case/$/upper-case-first'/*'upper-case-first'*/)
-
-/**
- * Pascal case a string.
- *
- * @param  {String} string
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (string, locale) {
-  return upperCaseFirst(camelCase(string, locale), locale)
-}
-
-});
-$rmod.main("/constant-case@1.1.1", "constant-case");
-$rmod.dep("/$/change-case", "constant-case", "1.1.1");
-$rmod.def("/constant-case@1.1.1/constant-case", function(require, exports, module, __filename, __dirname) { var upperCase = require('/$/change-case/$/upper-case'/*'upper-case'*/)
-var snakeCase = require('/$/change-case/$/snake-case'/*'snake-case'*/)
-
-/**
- * Constant case a string.
- *
- * @param  {String} string
- * @param  {String} [locale]
- * @return {String}
- */
-module.exports = function (string, locale) {
-  return upperCase(snakeCase(string, locale), locale)
-}
-
-});
-$rmod.main("/sentence-case@1.1.2", "sentence-case");
-$rmod.dep("/$/change-case", "sentence-case", "1.1.2");
-$rmod.def("/sentence-case@1.1.2/vendor/non-word-regexp", function(require, exports, module, __filename, __dirname) { module.exports = /[^\u0041-\u005A\u0061-\u007A\u00AA\u00B5\u00BA\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02C1\u02C6-\u02D1\u02E0-\u02E4\u02EC\u02EE\u0370-\u0374\u0376\u0377\u037A-\u037D\u0386\u0388-\u038A\u038C\u038E-\u03A1\u03A3-\u03F5\u03F7-\u0481\u048A-\u0527\u0531-\u0556\u0559\u0561-\u0587\u05D0-\u05EA\u05F0-\u05F2\u0620-\u064A\u066E\u066F\u0671-\u06D3\u06D5\u06E5\u06E6\u06EE\u06EF\u06FA-\u06FC\u06FF\u0710\u0712-\u072F\u074D-\u07A5\u07B1\u07CA-\u07EA\u07F4\u07F5\u07FA\u0800-\u0815\u081A\u0824\u0828\u0840-\u0858\u08A0\u08A2-\u08AC\u0904-\u0939\u093D\u0950\u0958-\u0961\u0971-\u0977\u0979-\u097F\u0985-\u098C\u098F\u0990\u0993-\u09A8\u09AA-\u09B0\u09B2\u09B6-\u09B9\u09BD\u09CE\u09DC\u09DD\u09DF-\u09E1\u09F0\u09F1\u0A05-\u0A0A\u0A0F\u0A10\u0A13-\u0A28\u0A2A-\u0A30\u0A32\u0A33\u0A35\u0A36\u0A38\u0A39\u0A59-\u0A5C\u0A5E\u0A72-\u0A74\u0A85-\u0A8D\u0A8F-\u0A91\u0A93-\u0AA8\u0AAA-\u0AB0\u0AB2\u0AB3\u0AB5-\u0AB9\u0ABD\u0AD0\u0AE0\u0AE1\u0B05-\u0B0C\u0B0F\u0B10\u0B13-\u0B28\u0B2A-\u0B30\u0B32\u0B33\u0B35-\u0B39\u0B3D\u0B5C\u0B5D\u0B5F-\u0B61\u0B71\u0B83\u0B85-\u0B8A\u0B8E-\u0B90\u0B92-\u0B95\u0B99\u0B9A\u0B9C\u0B9E\u0B9F\u0BA3\u0BA4\u0BA8-\u0BAA\u0BAE-\u0BB9\u0BD0\u0C05-\u0C0C\u0C0E-\u0C10\u0C12-\u0C28\u0C2A-\u0C33\u0C35-\u0C39\u0C3D\u0C58\u0C59\u0C60\u0C61\u0C85-\u0C8C\u0C8E-\u0C90\u0C92-\u0CA8\u0CAA-\u0CB3\u0CB5-\u0CB9\u0CBD\u0CDE\u0CE0\u0CE1\u0CF1\u0CF2\u0D05-\u0D0C\u0D0E-\u0D10\u0D12-\u0D3A\u0D3D\u0D4E\u0D60\u0D61\u0D7A-\u0D7F\u0D85-\u0D96\u0D9A-\u0DB1\u0DB3-\u0DBB\u0DBD\u0DC0-\u0DC6\u0E01-\u0E30\u0E32\u0E33\u0E40-\u0E46\u0E81\u0E82\u0E84\u0E87\u0E88\u0E8A\u0E8D\u0E94-\u0E97\u0E99-\u0E9F\u0EA1-\u0EA3\u0EA5\u0EA7\u0EAA\u0EAB\u0EAD-\u0EB0\u0EB2\u0EB3\u0EBD\u0EC0-\u0EC4\u0EC6\u0EDC-\u0EDF\u0F00\u0F40-\u0F47\u0F49-\u0F6C\u0F88-\u0F8C\u1000-\u102A\u103F\u1050-\u1055\u105A-\u105D\u1061\u1065\u1066\u106E-\u1070\u1075-\u1081\u108E\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FA\u10FC-\u1248\u124A-\u124D\u1250-\u1256\u1258\u125A-\u125D\u1260-\u1288\u128A-\u128D\u1290-\u12B0\u12B2-\u12B5\u12B8-\u12BE\u12C0\u12C2-\u12C5\u12C8-\u12D6\u12D8-\u1310\u1312-\u1315\u1318-\u135A\u1380-\u138F\u13A0-\u13F4\u1401-\u166C\u166F-\u167F\u1681-\u169A\u16A0-\u16EA\u1700-\u170C\u170E-\u1711\u1720-\u1731\u1740-\u1751\u1760-\u176C\u176E-\u1770\u1780-\u17B3\u17D7\u17DC\u1820-\u1877\u1880-\u18A8\u18AA\u18B0-\u18F5\u1900-\u191C\u1950-\u196D\u1970-\u1974\u1980-\u19AB\u19C1-\u19C7\u1A00-\u1A16\u1A20-\u1A54\u1AA7\u1B05-\u1B33\u1B45-\u1B4B\u1B83-\u1BA0\u1BAE\u1BAF\u1BBA-\u1BE5\u1C00-\u1C23\u1C4D-\u1C4F\u1C5A-\u1C7D\u1CE9-\u1CEC\u1CEE-\u1CF1\u1CF5\u1CF6\u1D00-\u1DBF\u1E00-\u1F15\u1F18-\u1F1D\u1F20-\u1F45\u1F48-\u1F4D\u1F50-\u1F57\u1F59\u1F5B\u1F5D\u1F5F-\u1F7D\u1F80-\u1FB4\u1FB6-\u1FBC\u1FBE\u1FC2-\u1FC4\u1FC6-\u1FCC\u1FD0-\u1FD3\u1FD6-\u1FDB\u1FE0-\u1FEC\u1FF2-\u1FF4\u1FF6-\u1FFC\u2071\u207F\u2090-\u209C\u2102\u2107\u210A-\u2113\u2115\u2119-\u211D\u2124\u2126\u2128\u212A-\u212D\u212F-\u2139\u213C-\u213F\u2145-\u2149\u214E\u2183\u2184\u2C00-\u2C2E\u2C30-\u2C5E\u2C60-\u2CE4\u2CEB-\u2CEE\u2CF2\u2CF3\u2D00-\u2D25\u2D27\u2D2D\u2D30-\u2D67\u2D6F\u2D80-\u2D96\u2DA0-\u2DA6\u2DA8-\u2DAE\u2DB0-\u2DB6\u2DB8-\u2DBE\u2DC0-\u2DC6\u2DC8-\u2DCE\u2DD0-\u2DD6\u2DD8-\u2DDE\u2E2F\u3005\u3006\u3031-\u3035\u303B\u303C\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312D\u3131-\u318E\u31A0-\u31BA\u31F0-\u31FF\u3400-\u4DB5\u4E00-\u9FCC\uA000-\uA48C\uA4D0-\uA4FD\uA500-\uA60C\uA610-\uA61F\uA62A\uA62B\uA640-\uA66E\uA67F-\uA697\uA6A0-\uA6E5\uA717-\uA71F\uA722-\uA788\uA78B-\uA78E\uA790-\uA793\uA7A0-\uA7AA\uA7F8-\uA801\uA803-\uA805\uA807-\uA80A\uA80C-\uA822\uA840-\uA873\uA882-\uA8B3\uA8F2-\uA8F7\uA8FB\uA90A-\uA925\uA930-\uA946\uA960-\uA97C\uA984-\uA9B2\uA9CF\uAA00-\uAA28\uAA40-\uAA42\uAA44-\uAA4B\uAA60-\uAA76\uAA7A\uAA80-\uAAAF\uAAB1\uAAB5\uAAB6\uAAB9-\uAABD\uAAC0\uAAC2\uAADB-\uAADD\uAAE0-\uAAEA\uAAF2-\uAAF4\uAB01-\uAB06\uAB09-\uAB0E\uAB11-\uAB16\uAB20-\uAB26\uAB28-\uAB2E\uABC0-\uABE2\uAC00-\uD7A3\uD7B0-\uD7C6\uD7CB-\uD7FB\uF900-\uFA6D\uFA70-\uFAD9\uFB00-\uFB06\uFB13-\uFB17\uFB1D\uFB1F-\uFB28\uFB2A-\uFB36\uFB38-\uFB3C\uFB3E\uFB40\uFB41\uFB43\uFB44\uFB46-\uFBB1\uFBD3-\uFD3D\uFD50-\uFD8F\uFD92-\uFDC7\uFDF0-\uFDFB\uFE70-\uFE74\uFE76-\uFEFC\uFF21-\uFF3A\uFF41-\uFF5A\uFF66-\uFFBE\uFFC2-\uFFC7\uFFCA-\uFFCF\uFFD2-\uFFD7\uFFDA-\uFFDC\u0030-\u0039\u00B2\u00B3\u00B9\u00BC-\u00BE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D66-\u0D75\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19]+/g
-
-});
-$rmod.def("/sentence-case@1.1.2/vendor/camel-case-regexp", function(require, exports, module, __filename, __dirname) { module.exports = /([\u0061-\u007A\u00B5\u00DF-\u00F6\u00F8-\u00FF\u0101\u0103\u0105\u0107\u0109\u010B\u010D\u010F\u0111\u0113\u0115\u0117\u0119\u011B\u011D\u011F\u0121\u0123\u0125\u0127\u0129\u012B\u012D\u012F\u0131\u0133\u0135\u0137\u0138\u013A\u013C\u013E\u0140\u0142\u0144\u0146\u0148\u0149\u014B\u014D\u014F\u0151\u0153\u0155\u0157\u0159\u015B\u015D\u015F\u0161\u0163\u0165\u0167\u0169\u016B\u016D\u016F\u0171\u0173\u0175\u0177\u017A\u017C\u017E-\u0180\u0183\u0185\u0188\u018C\u018D\u0192\u0195\u0199-\u019B\u019E\u01A1\u01A3\u01A5\u01A8\u01AA\u01AB\u01AD\u01B0\u01B4\u01B6\u01B9\u01BA\u01BD-\u01BF\u01C6\u01C9\u01CC\u01CE\u01D0\u01D2\u01D4\u01D6\u01D8\u01DA\u01DC\u01DD\u01DF\u01E1\u01E3\u01E5\u01E7\u01E9\u01EB\u01ED\u01EF\u01F0\u01F3\u01F5\u01F9\u01FB\u01FD\u01FF\u0201\u0203\u0205\u0207\u0209\u020B\u020D\u020F\u0211\u0213\u0215\u0217\u0219\u021B\u021D\u021F\u0221\u0223\u0225\u0227\u0229\u022B\u022D\u022F\u0231\u0233-\u0239\u023C\u023F\u0240\u0242\u0247\u0249\u024B\u024D\u024F-\u0293\u0295-\u02AF\u0371\u0373\u0377\u037B-\u037D\u0390\u03AC-\u03CE\u03D0\u03D1\u03D5-\u03D7\u03D9\u03DB\u03DD\u03DF\u03E1\u03E3\u03E5\u03E7\u03E9\u03EB\u03ED\u03EF-\u03F3\u03F5\u03F8\u03FB\u03FC\u0430-\u045F\u0461\u0463\u0465\u0467\u0469\u046B\u046D\u046F\u0471\u0473\u0475\u0477\u0479\u047B\u047D\u047F\u0481\u048B\u048D\u048F\u0491\u0493\u0495\u0497\u0499\u049B\u049D\u049F\u04A1\u04A3\u04A5\u04A7\u04A9\u04AB\u04AD\u04AF\u04B1\u04B3\u04B5\u04B7\u04B9\u04BB\u04BD\u04BF\u04C2\u04C4\u04C6\u04C8\u04CA\u04CC\u04CE\u04CF\u04D1\u04D3\u04D5\u04D7\u04D9\u04DB\u04DD\u04DF\u04E1\u04E3\u04E5\u04E7\u04E9\u04EB\u04ED\u04EF\u04F1\u04F3\u04F5\u04F7\u04F9\u04FB\u04FD\u04FF\u0501\u0503\u0505\u0507\u0509\u050B\u050D\u050F\u0511\u0513\u0515\u0517\u0519\u051B\u051D\u051F\u0521\u0523\u0525\u0527\u0561-\u0587\u1D00-\u1D2B\u1D6B-\u1D77\u1D79-\u1D9A\u1E01\u1E03\u1E05\u1E07\u1E09\u1E0B\u1E0D\u1E0F\u1E11\u1E13\u1E15\u1E17\u1E19\u1E1B\u1E1D\u1E1F\u1E21\u1E23\u1E25\u1E27\u1E29\u1E2B\u1E2D\u1E2F\u1E31\u1E33\u1E35\u1E37\u1E39\u1E3B\u1E3D\u1E3F\u1E41\u1E43\u1E45\u1E47\u1E49\u1E4B\u1E4D\u1E4F\u1E51\u1E53\u1E55\u1E57\u1E59\u1E5B\u1E5D\u1E5F\u1E61\u1E63\u1E65\u1E67\u1E69\u1E6B\u1E6D\u1E6F\u1E71\u1E73\u1E75\u1E77\u1E79\u1E7B\u1E7D\u1E7F\u1E81\u1E83\u1E85\u1E87\u1E89\u1E8B\u1E8D\u1E8F\u1E91\u1E93\u1E95-\u1E9D\u1E9F\u1EA1\u1EA3\u1EA5\u1EA7\u1EA9\u1EAB\u1EAD\u1EAF\u1EB1\u1EB3\u1EB5\u1EB7\u1EB9\u1EBB\u1EBD\u1EBF\u1EC1\u1EC3\u1EC5\u1EC7\u1EC9\u1ECB\u1ECD\u1ECF\u1ED1\u1ED3\u1ED5\u1ED7\u1ED9\u1EDB\u1EDD\u1EDF\u1EE1\u1EE3\u1EE5\u1EE7\u1EE9\u1EEB\u1EED\u1EEF\u1EF1\u1EF3\u1EF5\u1EF7\u1EF9\u1EFB\u1EFD\u1EFF-\u1F07\u1F10-\u1F15\u1F20-\u1F27\u1F30-\u1F37\u1F40-\u1F45\u1F50-\u1F57\u1F60-\u1F67\u1F70-\u1F7D\u1F80-\u1F87\u1F90-\u1F97\u1FA0-\u1FA7\u1FB0-\u1FB4\u1FB6\u1FB7\u1FBE\u1FC2-\u1FC4\u1FC6\u1FC7\u1FD0-\u1FD3\u1FD6\u1FD7\u1FE0-\u1FE7\u1FF2-\u1FF4\u1FF6\u1FF7\u210A\u210E\u210F\u2113\u212F\u2134\u2139\u213C\u213D\u2146-\u2149\u214E\u2184\u2C30-\u2C5E\u2C61\u2C65\u2C66\u2C68\u2C6A\u2C6C\u2C71\u2C73\u2C74\u2C76-\u2C7B\u2C81\u2C83\u2C85\u2C87\u2C89\u2C8B\u2C8D\u2C8F\u2C91\u2C93\u2C95\u2C97\u2C99\u2C9B\u2C9D\u2C9F\u2CA1\u2CA3\u2CA5\u2CA7\u2CA9\u2CAB\u2CAD\u2CAF\u2CB1\u2CB3\u2CB5\u2CB7\u2CB9\u2CBB\u2CBD\u2CBF\u2CC1\u2CC3\u2CC5\u2CC7\u2CC9\u2CCB\u2CCD\u2CCF\u2CD1\u2CD3\u2CD5\u2CD7\u2CD9\u2CDB\u2CDD\u2CDF\u2CE1\u2CE3\u2CE4\u2CEC\u2CEE\u2CF3\u2D00-\u2D25\u2D27\u2D2D\uA641\uA643\uA645\uA647\uA649\uA64B\uA64D\uA64F\uA651\uA653\uA655\uA657\uA659\uA65B\uA65D\uA65F\uA661\uA663\uA665\uA667\uA669\uA66B\uA66D\uA681\uA683\uA685\uA687\uA689\uA68B\uA68D\uA68F\uA691\uA693\uA695\uA697\uA723\uA725\uA727\uA729\uA72B\uA72D\uA72F-\uA731\uA733\uA735\uA737\uA739\uA73B\uA73D\uA73F\uA741\uA743\uA745\uA747\uA749\uA74B\uA74D\uA74F\uA751\uA753\uA755\uA757\uA759\uA75B\uA75D\uA75F\uA761\uA763\uA765\uA767\uA769\uA76B\uA76D\uA76F\uA771-\uA778\uA77A\uA77C\uA77F\uA781\uA783\uA785\uA787\uA78C\uA78E\uA791\uA793\uA7A1\uA7A3\uA7A5\uA7A7\uA7A9\uA7FA\uFB00-\uFB06\uFB13-\uFB17\uFF41-\uFF5A])([\u0041-\u005A\u00C0-\u00D6\u00D8-\u00DE\u0100\u0102\u0104\u0106\u0108\u010A\u010C\u010E\u0110\u0112\u0114\u0116\u0118\u011A\u011C\u011E\u0120\u0122\u0124\u0126\u0128\u012A\u012C\u012E\u0130\u0132\u0134\u0136\u0139\u013B\u013D\u013F\u0141\u0143\u0145\u0147\u014A\u014C\u014E\u0150\u0152\u0154\u0156\u0158\u015A\u015C\u015E\u0160\u0162\u0164\u0166\u0168\u016A\u016C\u016E\u0170\u0172\u0174\u0176\u0178\u0179\u017B\u017D\u0181\u0182\u0184\u0186\u0187\u0189-\u018B\u018E-\u0191\u0193\u0194\u0196-\u0198\u019C\u019D\u019F\u01A0\u01A2\u01A4\u01A6\u01A7\u01A9\u01AC\u01AE\u01AF\u01B1-\u01B3\u01B5\u01B7\u01B8\u01BC\u01C4\u01C7\u01CA\u01CD\u01CF\u01D1\u01D3\u01D5\u01D7\u01D9\u01DB\u01DE\u01E0\u01E2\u01E4\u01E6\u01E8\u01EA\u01EC\u01EE\u01F1\u01F4\u01F6-\u01F8\u01FA\u01FC\u01FE\u0200\u0202\u0204\u0206\u0208\u020A\u020C\u020E\u0210\u0212\u0214\u0216\u0218\u021A\u021C\u021E\u0220\u0222\u0224\u0226\u0228\u022A\u022C\u022E\u0230\u0232\u023A\u023B\u023D\u023E\u0241\u0243-\u0246\u0248\u024A\u024C\u024E\u0370\u0372\u0376\u0386\u0388-\u038A\u038C\u038E\u038F\u0391-\u03A1\u03A3-\u03AB\u03CF\u03D2-\u03D4\u03D8\u03DA\u03DC\u03DE\u03E0\u03E2\u03E4\u03E6\u03E8\u03EA\u03EC\u03EE\u03F4\u03F7\u03F9\u03FA\u03FD-\u042F\u0460\u0462\u0464\u0466\u0468\u046A\u046C\u046E\u0470\u0472\u0474\u0476\u0478\u047A\u047C\u047E\u0480\u048A\u048C\u048E\u0490\u0492\u0494\u0496\u0498\u049A\u049C\u049E\u04A0\u04A2\u04A4\u04A6\u04A8\u04AA\u04AC\u04AE\u04B0\u04B2\u04B4\u04B6\u04B8\u04BA\u04BC\u04BE\u04C0\u04C1\u04C3\u04C5\u04C7\u04C9\u04CB\u04CD\u04D0\u04D2\u04D4\u04D6\u04D8\u04DA\u04DC\u04DE\u04E0\u04E2\u04E4\u04E6\u04E8\u04EA\u04EC\u04EE\u04F0\u04F2\u04F4\u04F6\u04F8\u04FA\u04FC\u04FE\u0500\u0502\u0504\u0506\u0508\u050A\u050C\u050E\u0510\u0512\u0514\u0516\u0518\u051A\u051C\u051E\u0520\u0522\u0524\u0526\u0531-\u0556\u10A0-\u10C5\u10C7\u10CD\u1E00\u1E02\u1E04\u1E06\u1E08\u1E0A\u1E0C\u1E0E\u1E10\u1E12\u1E14\u1E16\u1E18\u1E1A\u1E1C\u1E1E\u1E20\u1E22\u1E24\u1E26\u1E28\u1E2A\u1E2C\u1E2E\u1E30\u1E32\u1E34\u1E36\u1E38\u1E3A\u1E3C\u1E3E\u1E40\u1E42\u1E44\u1E46\u1E48\u1E4A\u1E4C\u1E4E\u1E50\u1E52\u1E54\u1E56\u1E58\u1E5A\u1E5C\u1E5E\u1E60\u1E62\u1E64\u1E66\u1E68\u1E6A\u1E6C\u1E6E\u1E70\u1E72\u1E74\u1E76\u1E78\u1E7A\u1E7C\u1E7E\u1E80\u1E82\u1E84\u1E86\u1E88\u1E8A\u1E8C\u1E8E\u1E90\u1E92\u1E94\u1E9E\u1EA0\u1EA2\u1EA4\u1EA6\u1EA8\u1EAA\u1EAC\u1EAE\u1EB0\u1EB2\u1EB4\u1EB6\u1EB8\u1EBA\u1EBC\u1EBE\u1EC0\u1EC2\u1EC4\u1EC6\u1EC8\u1ECA\u1ECC\u1ECE\u1ED0\u1ED2\u1ED4\u1ED6\u1ED8\u1EDA\u1EDC\u1EDE\u1EE0\u1EE2\u1EE4\u1EE6\u1EE8\u1EEA\u1EEC\u1EEE\u1EF0\u1EF2\u1EF4\u1EF6\u1EF8\u1EFA\u1EFC\u1EFE\u1F08-\u1F0F\u1F18-\u1F1D\u1F28-\u1F2F\u1F38-\u1F3F\u1F48-\u1F4D\u1F59\u1F5B\u1F5D\u1F5F\u1F68-\u1F6F\u1FB8-\u1FBB\u1FC8-\u1FCB\u1FD8-\u1FDB\u1FE8-\u1FEC\u1FF8-\u1FFB\u2102\u2107\u210B-\u210D\u2110-\u2112\u2115\u2119-\u211D\u2124\u2126\u2128\u212A-\u212D\u2130-\u2133\u213E\u213F\u2145\u2183\u2C00-\u2C2E\u2C60\u2C62-\u2C64\u2C67\u2C69\u2C6B\u2C6D-\u2C70\u2C72\u2C75\u2C7E-\u2C80\u2C82\u2C84\u2C86\u2C88\u2C8A\u2C8C\u2C8E\u2C90\u2C92\u2C94\u2C96\u2C98\u2C9A\u2C9C\u2C9E\u2CA0\u2CA2\u2CA4\u2CA6\u2CA8\u2CAA\u2CAC\u2CAE\u2CB0\u2CB2\u2CB4\u2CB6\u2CB8\u2CBA\u2CBC\u2CBE\u2CC0\u2CC2\u2CC4\u2CC6\u2CC8\u2CCA\u2CCC\u2CCE\u2CD0\u2CD2\u2CD4\u2CD6\u2CD8\u2CDA\u2CDC\u2CDE\u2CE0\u2CE2\u2CEB\u2CED\u2CF2\uA640\uA642\uA644\uA646\uA648\uA64A\uA64C\uA64E\uA650\uA652\uA654\uA656\uA658\uA65A\uA65C\uA65E\uA660\uA662\uA664\uA666\uA668\uA66A\uA66C\uA680\uA682\uA684\uA686\uA688\uA68A\uA68C\uA68E\uA690\uA692\uA694\uA696\uA722\uA724\uA726\uA728\uA72A\uA72C\uA72E\uA732\uA734\uA736\uA738\uA73A\uA73C\uA73E\uA740\uA742\uA744\uA746\uA748\uA74A\uA74C\uA74E\uA750\uA752\uA754\uA756\uA758\uA75A\uA75C\uA75E\uA760\uA762\uA764\uA766\uA768\uA76A\uA76C\uA76E\uA779\uA77B\uA77D\uA77E\uA780\uA782\uA784\uA786\uA78B\uA78D\uA790\uA792\uA7A0\uA7A2\uA7A4\uA7A6\uA7A8\uA7AA\uFF21-\uFF3A\u0030-\u0039\u00B2\u00B3\u00B9\u00BC-\u00BE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D66-\u0D75\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19])/g
-
-});
-$rmod.def("/sentence-case@1.1.2/vendor/trailing-digit-regexp", function(require, exports, module, __filename, __dirname) { module.exports = /([\u0030-\u0039\u00B2\u00B3\u00B9\u00BC-\u00BE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D66-\u0D75\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19])([^\u0030-\u0039\u00B2\u00B3\u00B9\u00BC-\u00BE\u0660-\u0669\u06F0-\u06F9\u07C0-\u07C9\u0966-\u096F\u09E6-\u09EF\u09F4-\u09F9\u0A66-\u0A6F\u0AE6-\u0AEF\u0B66-\u0B6F\u0B72-\u0B77\u0BE6-\u0BF2\u0C66-\u0C6F\u0C78-\u0C7E\u0CE6-\u0CEF\u0D66-\u0D75\u0E50-\u0E59\u0ED0-\u0ED9\u0F20-\u0F33\u1040-\u1049\u1090-\u1099\u1369-\u137C\u16EE-\u16F0\u17E0-\u17E9\u17F0-\u17F9\u1810-\u1819\u1946-\u194F\u19D0-\u19DA\u1A80-\u1A89\u1A90-\u1A99\u1B50-\u1B59\u1BB0-\u1BB9\u1C40-\u1C49\u1C50-\u1C59\u2070\u2074-\u2079\u2080-\u2089\u2150-\u2182\u2185-\u2189\u2460-\u249B\u24EA-\u24FF\u2776-\u2793\u2CFD\u3007\u3021-\u3029\u3038-\u303A\u3192-\u3195\u3220-\u3229\u3248-\u324F\u3251-\u325F\u3280-\u3289\u32B1-\u32BF\uA620-\uA629\uA6E6-\uA6EF\uA830-\uA835\uA8D0-\uA8D9\uA900-\uA909\uA9D0-\uA9D9\uAA50-\uAA59\uABF0-\uABF9\uFF10-\uFF19])/g
-
-});
-$rmod.def("/sentence-case@1.1.2/sentence-case", function(require, exports, module, __filename, __dirname) { var lowerCase = require('/$/change-case/$/lower-case'/*'lower-case'*/)
-
-var NON_WORD_REGEXP = require('./vendor/non-word-regexp')
-var CAMEL_CASE_REGEXP = require('./vendor/camel-case-regexp')
-var TRAILING_DIGIT_REGEXP = require('./vendor/trailing-digit-regexp')
-
-/**
- * Sentence case a string.
- *
- * @param  {String} str
- * @param  {String} locale
- * @param  {String} replacement
- * @return {String}
- */
-module.exports = function (str, locale, replacement) {
-  if (str == null) {
-    return ''
-  }
-
-  replacement = replacement || ' '
-
-  function replace (match, index, string) {
-    if (index === 0 || index === (string.length - match.length)) {
-      return ''
-    }
-
-    return replacement
-  }
-
-  str = String(str)
-    // Support camel case ("camelCase" -> "camel Case").
-    .replace(CAMEL_CASE_REGEXP, '$1 $2')
-    // Support digit groups ("test2012" -> "test 2012").
-    .replace(TRAILING_DIGIT_REGEXP, '$1 $2')
-    // Remove all non-word characters and replace with a single space.
-    .replace(NON_WORD_REGEXP, replace)
-
-  // Lower case the entire string.
-  return lowerCase(str, locale)
-}
-
-});
-$rmod.main("/is-upper-case@1.1.1", "is-upper-case");
-$rmod.dep("/$/change-case", "is-upper-case", "1.1.1");
-$rmod.def("/is-upper-case@1.1.1/is-upper-case", function(require, exports, module, __filename, __dirname) { var upperCase = require('/$/change-case/$/upper-case'/*'upper-case'*/)
-
-/**
- * Check if a string is upper case.
- *
- * @param  {String}  string
- * @param  {String}  [locale]
- * @return {Boolean}
- */
-module.exports = function (string, locale) {
-  return upperCase(string, locale) === string
-}
-
-});
-$rmod.main("/is-lower-case@1.1.1", "is-lower-case");
-$rmod.dep("/$/change-case", "is-lower-case", "1.1.1");
-$rmod.def("/is-lower-case@1.1.1/is-lower-case", function(require, exports, module, __filename, __dirname) { var lowerCase = require('/$/change-case/$/lower-case'/*'lower-case'*/)
-
-/**
- * Check if a string is lower case.
- *
- * @param  {String}  string
- * @param  {String}  [locale]
- * @return {Boolean}
- */
-module.exports = function (string, locale) {
-  return lowerCase(string, locale) === string
-}
-
-});
-$rmod.main("/upper-case-first@1.1.1", "upper-case-first");
-$rmod.dep("/$/change-case", "upper-case-first", "1.1.1");
-$rmod.def("/upper-case-first@1.1.1/upper-case-first", function(require, exports, module, __filename, __dirname) { var upperCase = require('/$/change-case/$/upper-case'/*'upper-case'*/)
-
-/**
- * Upper case the first character of a string.
- *
- * @param  {String} str
- * @return {String}
- */
-module.exports = function (str, locale) {
-  if (str == null) {
-    return ''
-  }
-
-  str = String(str)
-
-  return upperCase(str.charAt(0), locale) + str.substr(1)
-}
-
-});
-$rmod.main("/lower-case-first@1.0.0", "lower-case-first");
-$rmod.dep("/$/change-case", "lower-case-first", "1.0.0");
-$rmod.def("/lower-case-first@1.0.0/lower-case-first", function(require, exports, module, __filename, __dirname) { var lowerCase = require('/$/change-case/$/lower-case'/*'lower-case'*/)
-
-/**
- * Lower case the first character of a string.
- *
- * @param  {String} str
- * @return {String}
- */
-module.exports = function (str, locale) {
-  if (str == null) {
-    return ''
-  }
-
-  str = String(str)
-
-  return lowerCase(str.charAt(0), locale) + str.substr(1)
-}
-
-});
-$rmod.def("/change-case@2.3.0/change-case", function(require, exports, module, __filename, __dirname) { exports.dot = exports.dotCase = require('/$/change-case/$/dot-case'/*'dot-case'*/)
-exports.swap = exports.swapCase = require('/$/change-case/$/swap-case'/*'swap-case'*/)
-exports.path = exports.pathCase = require('/$/change-case/$/path-case'/*'path-case'*/)
-exports.upper = exports.upperCase = require('/$/change-case/$/upper-case'/*'upper-case'*/)
-exports.lower = exports.lowerCase = require('/$/change-case/$/lower-case'/*'lower-case'*/)
-exports.camel = exports.camelCase = require('/$/change-case/$/camel-case'/*'camel-case'*/)
-exports.snake = exports.snakeCase = require('/$/change-case/$/snake-case'/*'snake-case'*/)
-exports.title = exports.titleCase = require('/$/change-case/$/title-case'/*'title-case'*/)
-exports.param = exports.paramCase = require('/$/change-case/$/param-case'/*'param-case'*/)
-exports.pascal = exports.pascalCase = require('/$/change-case/$/pascal-case'/*'pascal-case'*/)
-exports.constant = exports.constantCase = require('/$/change-case/$/constant-case'/*'constant-case'*/)
-exports.sentence = exports.sentenceCase = require('/$/change-case/$/sentence-case'/*'sentence-case'*/)
-exports.isUpper = exports.isUpperCase = require('/$/change-case/$/is-upper-case'/*'is-upper-case'*/)
-exports.isLower = exports.isLowerCase = require('/$/change-case/$/is-lower-case'/*'is-lower-case'*/)
-exports.ucFirst = exports.upperCaseFirst = require('/$/change-case/$/upper-case-first'/*'upper-case-first'*/)
-exports.lcFirst = exports.lowerCaseFirst = require('/$/change-case/$/lower-case-first'/*'lower-case-first'*/)
-
-});
+$rmod.main("/src/components/app-try-marko-widgets-app", "index");
 $rmod.main("/dom-classes@0.0.1", "index");
 $rmod.dep("", "dom-classes", "0.0.1");
 $rmod.main("/indexof@0.0.1", "index");
@@ -1184,81 +812,35 @@ function toggle (el, name) {
 }
 
 });
-$rmod.remap("/src/components/app-try-marko-app/samples-loader", "samples-loader-browser");
-$rmod.def("/src/components/app-try-marko-app/samples-loader-browser", function(require, exports, module, __filename, __dirname) { exports.load = function() {};
+$rmod.remap("/src/components/app-try-marko-widgets-app/samples-loader", "samples-loader-browser");
+$rmod.def("/src/components/app-try-marko-widgets-app/samples-loader-browser", function(require, exports, module, __filename, __dirname) { exports.load = function() {};
 });
-$rmod.main("/marko@2.7.28", "runtime/marko-runtime");
-$rmod.dep("", "marko", "2.7.28");
-$rmod.main("/async-writer@1.4.1", "lib/async-writer");
-$rmod.dep("/$/marko", "async-writer", "1.4.1");
-$rmod.main("/process@0.6.0", "index");
-$rmod.dep("", "process", "0.6.0");
-$rmod.remap("/process@0.6.0/index", "browser");
-$rmod.def("/process@0.6.0/browser", function(require, exports, module, __filename, __dirname) { // shim for using process in browser
+$rmod.main("/marko-widgets@6.0.0-rc.1", "lib/index");
+$rmod.dep("", "marko-widgets", "6.0.0-rc.1");
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/client-init", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            var source = ev.source;
-            if ((source === window || source === null) && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-function noop() {}
-
-process.on = noop;
-process.once = noop;
-process.off = noop;
-process.emit = noop;
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-}
-
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-
+require('./init-widgets').initServerRendered();
 });
-$rmod.main("/events@1.0.2", "events");
-$rmod.dep("/$/marko", "events", "1.0.2");
-$rmod.def("/events@1.0.2/events", function(require, exports, module, __filename, __dirname) { // Copyright Joyent, Inc. and other Node contributors.
+$rmod.run("/$/marko-widgets/lib/client-init");
+$rmod.main("/raptor-pubsub@1.0.5", "lib/index");
+$rmod.dep("/$/marko-widgets", "raptor-pubsub", "1.0.5");
+$rmod.main("/events@1.1.0", "events");
+$rmod.dep("/$/marko-widgets", "events", "1.1.0");
+$rmod.def("/events@1.1.0/events", function(require, exports, module, __filename, __dirname) { // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the
@@ -1341,18 +923,11 @@ EventEmitter.prototype.emit = function(type) {
         break;
       // slower
       default:
-        len = arguments.length;
-        args = new Array(len - 1);
-        for (i = 1; i < len; i++)
-          args[i - 1] = arguments[i];
+        args = Array.prototype.slice.call(arguments, 1);
         handler.apply(this, args);
     }
   } else if (isObject(handler)) {
-    len = arguments.length;
-    args = new Array(len - 1);
-    for (i = 1; i < len; i++)
-      args[i - 1] = arguments[i];
-
+    args = Array.prototype.slice.call(arguments, 1);
     listeners = handler.slice();
     len = listeners.length;
     for (i = 0; i < len; i++)
@@ -1390,7 +965,6 @@ EventEmitter.prototype.addListener = function(type, listener) {
 
   // Check for listener leak
   if (isObject(this._events[type]) && !this._events[type].warned) {
-    var m;
     if (!isUndefined(this._maxListeners)) {
       m = this._maxListeners;
     } else {
@@ -1512,7 +1086,7 @@ EventEmitter.prototype.removeAllListeners = function(type) {
 
   if (isFunction(listeners)) {
     this.removeListener(type, listeners);
-  } else {
+  } else if (listeners) {
     // LIFO order
     while (listeners.length)
       this.removeListener(type, listeners[listeners.length - 1]);
@@ -1533,15 +1107,20 @@ EventEmitter.prototype.listeners = function(type) {
   return ret;
 };
 
+EventEmitter.prototype.listenerCount = function(type) {
+  if (this._events) {
+    var evlistener = this._events[type];
+
+    if (isFunction(evlistener))
+      return 1;
+    else if (evlistener)
+      return evlistener.length;
+  }
+  return 0;
+};
+
 EventEmitter.listenerCount = function(emitter, type) {
-  var ret;
-  if (!emitter._events || !emitter._events[type])
-    ret = 0;
-  else if (isFunction(emitter._events[type]))
-    ret = 1;
-  else
-    ret = emitter._events[type].length;
-  return ret;
+  return emitter.listenerCount(type);
 };
 
 function isFunction(arg) {
@@ -1561,6 +1140,3165 @@ function isUndefined(arg) {
 }
 
 });
+$rmod.def("/raptor-pubsub@1.0.5/lib/raptor-pubsub", function(require, exports, module, __filename, __dirname) { var EventEmitter = require('/$/marko-widgets/$/events'/*'events'*/).EventEmitter;
+
+var channels = {};
+
+var globalChannel = new EventEmitter();
+
+globalChannel.channel = function(name) {
+    var channel;
+    if (name) {
+        channel = channels[name] || (channels[name] = new EventEmitter());
+    } else {
+        channel = new EventEmitter();
+    }
+    return channel;
+};
+
+globalChannel.removeChannel = function(name) {
+    delete channels[name];
+};
+
+module.exports = globalChannel;
+
+});
+$rmod.def("/raptor-pubsub@1.0.5/lib/index", function(require, exports, module, __filename, __dirname) { var g = typeof window === 'undefined' ? global : window;
+// Make this module a true singleton
+module.exports = g.__RAPTOR_PUBSUB || (g.__RAPTOR_PUBSUB = require('./raptor-pubsub'));
+});
+$rmod.main("/raptor-dom@1.1.1", "raptor-dom-server");
+$rmod.dep("/$/marko-widgets", "raptor-dom", "1.1.1");
+$rmod.def("/raptor-dom@1.1.1/ready", function(require, exports, module, __filename, __dirname) { /*
+    jQuery's doc.ready/$(function(){}) should
+    you wish to use a cross-browser domReady solution
+    without opting for a library.
+
+    Demo: http://jsfiddle.net/zKLpb/
+
+    usage:
+    $(function(){
+        // your code
+    });
+
+    Parts: jQuery project, Diego Perini, Lucent M.
+    Previous version from Addy Osmani (https://raw.github.com/addyosmani/jquery.parts/master/jquery.documentReady.js)
+
+    This version: Patrick Steele-Idem
+    - Converted to CommonJS module
+    - Code cleanup
+    - Fixes for IE <=10
+*/
+
+var isReady = false;
+var readyBound = false;
+
+var win = window;
+var doc = document;
+
+var listeners = [];
+
+function domReadyCallback() {
+    for (var i = 0, len = listeners.length; i < len; i++) {
+        var listener = listeners[i];
+        listener[0].call(listener[1]);
+    }
+    listeners = null;
+}
+
+// Handle when the DOM is ready
+function domReady() {
+    // Make sure that the DOM is not already loaded
+    if (!isReady) {
+        // Make sure body exists, at least, in case IE gets a little overzealous (ticket #5443).
+        if (!doc.body) {
+            return setTimeout(domReady, 1);
+        }
+        // Remember that the DOM is ready
+        isReady = true;
+        // If there are functions bound, to execute
+        domReadyCallback();
+        // Execute all of them
+    }
+} // /ready()
+
+// The ready event handler
+function domContentLoaded() {
+    if (doc.addEventListener) {
+        doc.removeEventListener("DOMContentLoaded", domContentLoaded, false);
+    } else {
+        // we're here because readyState !== "loading" in oldIE
+        // which is good enough for us to call the dom ready!
+        doc.detachEvent("onreadystatechange", domContentLoaded);
+    }
+    domReady();
+}
+
+// The DOM ready check for Internet Explorer
+function doScrollCheck() {
+    if (isReady) {
+        return;
+    }
+
+    try {
+        // If IE is used, use the trick by Diego Perini
+        // http://javascript.nwbox.com/IEContentLoaded/
+        doc.documentElement.doScroll("left");
+    } catch (error) {
+        setTimeout(doScrollCheck, 1);
+        return;
+    }
+    // and execute any waiting functions
+    domReady();
+}
+
+function bindReady() {
+    var toplevel = false;
+
+    // Catch cases where $ is called after the
+    // browser event has already occurred. IE <= 10 has a bug that results in 'interactive' being assigned
+    // to the readyState before the DOM is really ready
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        // We will get here if the browser is IE and the readyState === 'complete' or the browser
+        // is not IE and the readyState === 'interactive' || 'complete'
+        domReady();
+    } else if (doc.addEventListener) { // Standards-based browsers support DOMContentLoaded
+        // Use the handy event callback
+        doc.addEventListener("DOMContentLoaded", domContentLoaded, false);
+        // A fallback to win.onload, that will always work
+        win.addEventListener("load", domContentLoaded, false);
+        // If IE event model is used
+    } else if (doc.attachEvent) {
+        // ensure firing before onload,
+        // maybe late but safe also for iframes
+        doc.attachEvent("onreadystatechange", domContentLoaded);
+        // A fallback to win.onload, that will always work
+        win.attachEvent("onload", domContentLoaded);
+        // If IE and not a frame
+        // continually check to see if the document is ready
+        try {
+            toplevel = win.frameElement == null;
+        } catch (e) {}
+        if (doc.documentElement.doScroll && toplevel) {
+            doScrollCheck();
+        }
+    }
+}
+
+module.exports = function(callback, thisObj) {
+    if (isReady) {
+        return callback.call(thisObj);
+    }
+
+    listeners.push([callback, thisObj]);
+
+    if (!readyBound) {
+        readyBound = true;
+        bindReady();
+    }
+};
+});
+$rmod.remap("/raptor-dom@1.1.1/raptor-dom-server", "raptor-dom-client");
+$rmod.def("/raptor-dom@1.1.1/raptor-dom-client", function(require, exports, module, __filename, __dirname) { var raptorPubsub = require('/$/marko-widgets/$/raptor-pubsub'/*'raptor-pubsub'*/);
+
+function getNode(el) {
+    if (typeof el === 'string') {
+        var elId = el;
+        el = document.getElementById(elId);
+        if (!el) {
+            throw new Error('Target element not found: "' + elId + '"');
+        }
+    }
+    return el;
+}
+
+function _beforeRemove(referenceEl) {
+    if (raptorPubsub) {
+        raptorPubsub.emit('dom/beforeRemove', {
+            el: referenceEl
+        });
+    }
+}
+
+var dom = {
+    forEachChildEl: function(node, callback, scope) {
+        dom.forEachChild(node, callback, scope, 1);
+    },
+    forEachChild: function(node, callback, scope, nodeType) {
+        if (!node) {
+            return;
+        }
+        var i = 0;
+        var childNodes = node.childNodes;
+        var len = childNodes.length;
+        for (; i < len; i++) {
+            var childNode = childNodes[i];
+            if (childNode && (nodeType == null || nodeType == childNode.nodeType)) {
+                callback.call(scope, childNode);
+            }
+        }
+    },
+    detach: function(child) {
+        child = getNode(child);
+        child.parentNode.removeChild(child);
+    },
+    appendTo: function(newChild, referenceParentEl) {
+        getNode(referenceParentEl).appendChild(getNode(newChild));
+    },
+    remove: function(el) {
+        el = getNode(el);
+        _beforeRemove(el);
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+    },
+    removeChildren: function(parentEl) {
+        parentEl = getNode(parentEl);
+
+        var i = 0;
+        var childNodes = parentEl.childNodes;
+        var len = childNodes.length;
+        for (; i < len; i++) {
+            var childNode = childNodes[i];
+            if (childNode && childNode.nodeType === 1) {
+                _beforeRemove(childNode);
+            }
+        }
+        parentEl.innerHTML = '';
+    },
+    replace: function(newChild, replacedChild) {
+        replacedChild = getNode(replacedChild);
+        _beforeRemove(replacedChild);
+        replacedChild.parentNode.replaceChild(getNode(newChild), replacedChild);
+    },
+    replaceChildrenOf: function(newChild, referenceParentEl) {
+        referenceParentEl = getNode(referenceParentEl);
+        dom.forEachChildEl(referenceParentEl, function(childEl) {
+            _beforeRemove(childEl);
+        });
+        referenceParentEl.innerHTML = '';
+        referenceParentEl.appendChild(getNode(newChild));
+    },
+    insertBefore: function(newChild, referenceChild) {
+        referenceChild = getNode(referenceChild);
+        referenceChild.parentNode.insertBefore(getNode(newChild), referenceChild);
+    },
+    insertAfter: function(newChild, referenceChild) {
+        referenceChild = getNode(referenceChild);
+        newChild = getNode(newChild);
+        var nextSibling = referenceChild.nextSibling;
+        var parentNode = referenceChild.parentNode;
+        if (nextSibling) {
+            parentNode.insertBefore(newChild, nextSibling);
+        } else {
+            parentNode.appendChild(newChild);
+        }
+    },
+    prependTo: function(newChild, referenceParentEl) {
+        referenceParentEl = getNode(referenceParentEl);
+        referenceParentEl.insertBefore(getNode(newChild), referenceParentEl.firstChild || null);
+    }
+};
+
+/*
+var jquery = window.$;
+if (!jquery) {
+    try {
+        jquery = require('jquery');
+    }
+    catch(e) {}
+}
+
+if (jquery) {
+    dom.ready = function(callback, thisObj) {
+        jquery(function() {
+            callback.call(thisObj);
+        });
+    };
+} else {
+    dom.ready = require('./raptor-dom_documentReady');
+}
+*/
+dom.ready = require('./ready');
+
+module.exports = dom;
+});
+$rmod.dep("/$/marko-widgets", "raptor-util", "1.0.10");
+$rmod.def("/raptor-util@1.0.10/inherit", function(require, exports, module, __filename, __dirname) { var extend = require('./extend');
+
+function _inherit(clazz, superclass, copyProps) { //Helper function to setup the prototype chain of a class to inherit from another class's prototype
+    
+    var proto = clazz.prototype;
+    var F = function() {};
+    
+    F.prototype = superclass.prototype;
+
+    clazz.prototype = new F();
+    clazz.$super = superclass;
+
+    if (copyProps !== false) {
+        extend(clazz.prototype, proto);
+    }
+
+    clazz.prototype.constructor = clazz;
+    return clazz;
+}
+
+function inherit(clazz, superclass) {
+    return _inherit(clazz, superclass, true);
+}
+
+
+module.exports = inherit;
+
+inherit._inherit = _inherit;
+});
+$rmod.main("/marko-widgets@6.0.0-rc.1/lib", "index");
+$rmod.main("/listener-tracker@1.0.5", "lib/listener-tracker");
+$rmod.dep("/$/marko-widgets", "listener-tracker", "1.0.5");
+$rmod.def("/listener-tracker@1.0.5/lib/listener-tracker", function(require, exports, module, __filename, __dirname) { var INDEX_EVENT = 0;
+var INDEX_USER_LISTENER = 1;
+var INDEX_WRAPPED_LISTENER = 2;
+
+function EventEmitterWrapper(target) {
+    this._target = target;
+    this._listeners = [];
+    this._subscribeTo = null;
+}
+
+EventEmitterWrapper.prototype = {
+    _onProxy: function(type, event, listener) {
+        this._target[type](event, listener);
+        this._listeners.push([event, listener]);
+        return this;
+    },
+
+    _remove: function(test, testWrapped) {
+        var target = this._target;
+        var listeners = this._listeners;
+
+        this._listeners = listeners.filter(function(curListener) {
+            var curEvent = curListener[INDEX_EVENT];
+            var curListenerFunc = curListener[INDEX_USER_LISTENER];
+            var curWrappedListenerFunc = curListener[INDEX_WRAPPED_LISTENER];
+
+            if (testWrapped) {
+                // If the user used `once` to attach an event listener then we had to
+                // wrap their listener function with a new function that does some extra
+                // cleanup to avoid a memory leak. If the `testWrapped` flag is set to true
+                // then we are attempting to remove based on a function that we had to
+                // wrap (not the user listener function)
+                if (curWrappedListenerFunc && test(curEvent, curWrappedListenerFunc)) {
+                    target.removeListener(curEvent, curWrappedListenerFunc);
+                    return false;
+                }
+            } else if (test(curEvent, curListenerFunc)) {
+                // If the listener function was wrapped due to it being a `once` listener
+                // then we should remove from the target EventEmitter using wrapped
+                // listener function. Otherwise, we remove the listener using the user-provided
+                // listener function.
+                target.removeListener(curEvent, curWrappedListenerFunc || curListenerFunc);
+                return false;
+            }
+
+            return true;
+        });
+
+        // Fixes https://github.com/raptorjs/listener-tracker/issues/2
+        // If all of the listeners stored with a wrapped EventEmitter
+        // have been removed then we should unregister the wrapped
+        // EventEmitter in the parent SubscriptionTracker
+        var subscribeTo = this._subscribeTo;
+
+        if (this._listeners.length === 0 && subscribeTo) {
+            var self = this;
+            var subscribeToList = subscribeTo._subscribeToList;
+            subscribeTo._subscribeToList = subscribeToList.filter(function(cur) {
+                return cur !== self;
+            });
+        }
+    },
+
+    on: function(event, listener) {
+        return this._onProxy('on', event, listener);
+    },
+
+    once: function(event, listener) {
+        var self = this;
+
+        // Handling a `once` event listener is a little tricky since we need to also
+        // do our own cleanup if the `once` event is emitted. Therefore, we need
+        // to wrap the user's listener function with our own listener function.
+        var wrappedListener = function() {
+            self._remove(function(event, listenerFunc) {
+                return wrappedListener === listenerFunc;
+            }, true /* We are removing the wrapped listener */);
+
+            listener.apply(this, arguments);
+        };
+
+        this._target.once(event, wrappedListener);
+        this._listeners.push([event, listener, wrappedListener]);
+        return this;
+    },
+
+    removeListener: function(event, listener) {
+        if (typeof event === 'function') {
+            listener = event;
+            event = null;
+        }
+
+        if (listener && event) {
+            this._remove(function(curEvent, curListener) {
+                return event === curEvent && listener === curListener;
+            });
+        } else if (listener) {
+            this._remove(function(curEvent, curListener) {
+                return listener === curListener;
+            });
+        } else if (event) {
+            this.removeAllListeners(event);
+        }
+
+        return this;
+    },
+
+    removeAllListeners: function(event) {
+
+        var listeners = this._listeners;
+        var target = this._target;
+
+        if (event) {
+            this._remove(function(curEvent, curListener) {
+                return event === curEvent;
+            });
+        } else {
+            for (var i = listeners.length - 1; i >= 0; i--) {
+                var cur = listeners[i];
+                target.removeListener(cur[INDEX_EVENT], cur[INDEX_USER_LISTENER]);
+            }
+            this._listeners.length = 0;
+        }
+
+        return this;
+    }
+};
+
+EventEmitterWrapper.prototype.addListener = EventEmitterWrapper.prototype.on;
+
+function SubscriptionTracker() {
+    this._subscribeToList = [];
+}
+
+SubscriptionTracker.prototype = {
+
+    subscribeTo: function(target, options) {
+        var addDestroyListener = !options || options.addDestroyListener !== false;
+
+        var wrapper;
+        var subscribeToList = this._subscribeToList;
+
+        for (var i=0, len=subscribeToList.length; i<len; i++) {
+            var cur = subscribeToList[i];
+            if (cur._target === target) {
+                wrapper = cur;
+                break;
+            }
+        }
+
+        if (!wrapper) {
+            wrapper = new EventEmitterWrapper(target);
+            if (addDestroyListener) {
+                wrapper.once('destroy', function() {
+                    wrapper.removeAllListeners();
+
+                    for (var i = subscribeToList.length - 1; i >= 0; i--) {
+                        if (subscribeToList[i]._target === target) {
+                            subscribeToList.splice(i, 1);
+                            break;
+                        }
+                    }
+                });
+            }
+
+            // Store a reference to the parent SubscriptionTracker so that we can do cleanup
+            // if the EventEmitterWrapper instance becomes empty (i.e., no active listeners)
+            wrapper._subscribeTo = this;
+            subscribeToList.push(wrapper);
+        }
+
+        return wrapper;
+    },
+
+    removeAllListeners: function(target, event) {
+        var subscribeToList = this._subscribeToList;
+        var i;
+
+        if (target) {
+            for (i = subscribeToList.length - 1; i >= 0; i--) {
+                var cur = subscribeToList[i];
+                if (cur._target === target) {
+                    cur.removeAllListeners(event);
+
+                    if (!cur._listeners.length) {
+                        // Do some cleanup if we removed all
+                        // listeners for the target event emitter
+                        subscribeToList.splice(i, 1);
+                    }
+
+                    break;
+                }
+            }
+        } else {
+
+            for (i = subscribeToList.length - 1; i >= 0; i--) {
+                subscribeToList[i].removeAllListeners();
+            }
+            subscribeToList.length = 0;
+        }
+    }
+};
+
+exports.wrap = function(targetEventEmitter) {
+    var wrapper = new EventEmitterWrapper(targetEventEmitter);
+    targetEventEmitter.once('destroy', function() {
+        wrapper._listeners.length = 0;
+    });
+    return wrapper;
+};
+
+exports.createTracker = function() {
+    return new SubscriptionTracker();
+};
+});
+$rmod.def("/raptor-util@1.0.10/arrayFromArguments", function(require, exports, module, __filename, __dirname) { var slice = [].slice;
+
+module.exports = function(args, startIndex) {
+    if (!args) {
+        return [];
+    }
+    
+    if (startIndex) {
+        return startIndex < args.length ? slice.call(args, startIndex) : [];
+    }
+    else
+    {
+        return slice.call(args);
+    }
+};
+});
+$rmod.def("/raptor-util@1.0.10/extend", function(require, exports, module, __filename, __dirname) { module.exports = function extend(target, source) { //A simple function to copy properties from one object to another
+    if (!target) { //Check if a target was provided, otherwise create a new empty object to return
+        target = {};
+    }
+
+    if (source) {
+        for (var propName in source) {
+            if (source.hasOwnProperty(propName)) { //Only look at source properties that are not inherited
+                target[propName] = source[propName]; //Copy the property
+            }
+        }
+    }
+
+    return target;
+};
+});
+$rmod.main("/morphdom@1.1.2", "lib/index");
+$rmod.dep("/$/marko-widgets", "morphdom", "1.1.2");
+$rmod.def("/morphdom@1.1.2/lib/index", function(require, exports, module, __filename, __dirname) { // Create a range object for efficently rendering strings to elements.
+var range;
+
+var testEl = typeof document !== 'undefined' ? document.body || document.createElement('div') : {};
+
+// Fixes https://github.com/patrick-steele-idem/morphdom/issues/32 (IE7+ support)
+// <=IE7 does not support el.hasAttribute(name)
+var hasAttribute;
+if (testEl.hasAttribute) {
+    hasAttribute = function hasAttribute(el, name) {
+        return el.hasAttribute(name);
+    };
+} else {
+    hasAttribute = function hasAttribute(el, name) {
+        return el.getAttributeNode(name);
+    };
+}
+
+function empty(o) {
+    for (var k in o) {
+        if (o.hasOwnProperty(k)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+function toElement(str) {
+    if (!range && document.createRange) {
+        range = document.createRange();
+        range.selectNode(document.body);
+    }
+
+    var fragment;
+    if (range && range.createContextualFragment) {
+        fragment = range.createContextualFragment(str);
+    } else {
+        fragment = document.createElement('body');
+        fragment.innerHTML = str;
+    }
+    return fragment.childNodes[0];
+}
+
+var specialElHandlers = {
+    /**
+     * Needed for IE. Apparently IE doesn't think
+     * that "selected" is an attribute when reading
+     * over the attributes using selectEl.attributes
+     */
+    OPTION: function(fromEl, toEl) {
+        if ((fromEl.selected = toEl.selected)) {
+            fromEl.setAttribute('selected', '');
+        } else {
+            fromEl.removeAttribute('selected', '');
+        }
+    },
+    /**
+     * The "value" attribute is special for the <input> element
+     * since it sets the initial value. Changing the "value"
+     * attribute without changing the "value" property will have
+     * no effect since it is only used to the set the initial value.
+     * Similar for the "checked" attribute.
+     */
+    INPUT: function(fromEl, toEl) {
+        fromEl.checked = toEl.checked;
+
+        if (fromEl.value != toEl.value) {
+            fromEl.value = toEl.value;
+        }
+
+        if (!hasAttribute(toEl, 'checked')) {
+            fromEl.removeAttribute('checked');
+        }
+
+        if (!hasAttribute(toEl, 'value')) {
+            fromEl.removeAttribute('value');
+        }
+    },
+
+    TEXTAREA: function(fromEl, toEl) {
+        var newValue = toEl.value;
+        if (fromEl.value != newValue) {
+            fromEl.value = newValue;
+        }
+
+        if (fromEl.firstChild) {
+            fromEl.firstChild.nodeValue = newValue;
+        }
+    }
+};
+
+function noop() {}
+
+/**
+ * Loop over all of the attributes on the target node and make sure the
+ * original DOM node has the same attributes. If an attribute
+ * found on the original node is not on the new node then remove it from
+ * the original node
+ * @param  {HTMLElement} fromNode
+ * @param  {HTMLElement} toNode
+ */
+function morphAttrs(fromNode, toNode) {
+    var attrs = toNode.attributes;
+    var i;
+    var attr;
+    var attrName;
+    var attrValue;
+    var foundAttrs = {};
+
+    for (i=attrs.length-1; i>=0; i--) {
+        attr = attrs[i];
+        if (attr.specified !== false) {
+            attrName = attr.name;
+            attrValue = attr.value;
+            foundAttrs[attrName] = true;
+
+            if (fromNode.getAttribute(attrName) !== attrValue) {
+                fromNode.setAttribute(attrName, attrValue);
+            }
+        }
+    }
+
+    // Delete any extra attributes found on the original DOM element that weren't
+    // found on the target element.
+    attrs = fromNode.attributes;
+
+    for (i=attrs.length-1; i>=0; i--) {
+        attr = attrs[i];
+        if (attr.specified !== false) {
+            attrName = attr.name;
+            if (!foundAttrs.hasOwnProperty(attrName)) {
+                fromNode.removeAttribute(attrName);
+            }
+        }
+    }
+}
+
+/**
+ * Copies the children of one DOM element to another DOM element
+ */
+function moveChildren(fromEl, toEl) {
+    var curChild = fromEl.firstChild;
+    while(curChild) {
+        var nextChild = curChild.nextSibling;
+        toEl.appendChild(curChild);
+        curChild = nextChild;
+    }
+    return toEl;
+}
+
+function defaultGetNodeKey(node) {
+    return node.id;
+}
+
+function morphdom(fromNode, toNode, options) {
+    if (!options) {
+        options = {};
+    }
+
+    if (typeof toNode === 'string') {
+        toNode = toElement(toNode);
+    }
+
+    var savedEls = {}; // Used to save off DOM elements with IDs
+    var unmatchedEls = {};
+    var getNodeKey = options.getNodeKey || defaultGetNodeKey;
+    var onNodeDiscarded = options.onNodeDiscarded || noop;
+    var onBeforeMorphEl = options.onBeforeMorphEl || noop;
+    var onBeforeMorphElChildren = options.onBeforeMorphElChildren || noop;
+    var onBeforeNodeDiscarded = options.onBeforeNodeDiscarded || noop;
+    var childrenOnly = options.childrenOnly === true;
+    var movedEls = [];
+
+    function removeNodeHelper(node, nestedInSavedEl) {
+        var id = getNodeKey(node);
+        // If the node has an ID then save it off since we will want
+        // to reuse it in case the target DOM tree has a DOM element
+        // with the same ID
+        if (id) {
+            savedEls[id] = node;
+        } else if (!nestedInSavedEl) {
+            // If we are not nested in a saved element then we know that this node has been
+            // completely discarded and will not exist in the final DOM.
+            onNodeDiscarded(node);
+        }
+
+        if (node.nodeType === 1) {
+            var curChild = node.firstChild;
+            while(curChild) {
+                removeNodeHelper(curChild, nestedInSavedEl || id);
+                curChild = curChild.nextSibling;
+            }
+        }
+    }
+
+    function walkDiscardedChildNodes(node) {
+        if (node.nodeType === 1) {
+            var curChild = node.firstChild;
+            while(curChild) {
+
+
+                if (!getNodeKey(curChild)) {
+                    // We only want to handle nodes that don't have an ID to avoid double
+                    // walking the same saved element.
+
+                    onNodeDiscarded(curChild);
+
+                    // Walk recursively
+                    walkDiscardedChildNodes(curChild);
+                }
+
+                curChild = curChild.nextSibling;
+            }
+        }
+    }
+
+    function removeNode(node, parentNode, alreadyVisited) {
+        if (onBeforeNodeDiscarded(node) === false) {
+            return;
+        }
+
+        parentNode.removeChild(node);
+        if (alreadyVisited) {
+            if (!getNodeKey(node)) {
+                onNodeDiscarded(node);
+                walkDiscardedChildNodes(node);
+            }
+        } else {
+            removeNodeHelper(node);
+        }
+    }
+
+    function morphEl(fromEl, toEl, alreadyVisited, childrenOnly) {
+        var toElKey = getNodeKey(toEl);
+        if (toElKey) {
+            // If an element with an ID is being morphed then it is will be in the final
+            // DOM so clear it out of the saved elements collection
+            delete savedEls[toElKey];
+        }
+
+        if (!childrenOnly) {
+            if (onBeforeMorphEl(fromEl, toEl) === false) {
+                return;
+            }
+
+            morphAttrs(fromEl, toEl);
+
+            if (onBeforeMorphElChildren(fromEl, toEl) === false) {
+                return;
+            }
+        }
+
+        if (fromEl.tagName != 'TEXTAREA') {
+            var curToNodeChild = toEl.firstChild;
+            var curFromNodeChild = fromEl.firstChild;
+            var curToNodeId;
+
+            var fromNextSibling;
+            var toNextSibling;
+            var savedEl;
+            var unmatchedEl;
+
+            outer: while(curToNodeChild) {
+                toNextSibling = curToNodeChild.nextSibling;
+                curToNodeId = getNodeKey(curToNodeChild);
+
+                while(curFromNodeChild) {
+                    var curFromNodeId = getNodeKey(curFromNodeChild);
+                    fromNextSibling = curFromNodeChild.nextSibling;
+
+                    if (!alreadyVisited) {
+                        if (curFromNodeId && (unmatchedEl = unmatchedEls[curFromNodeId])) {
+                            unmatchedEl.parentNode.replaceChild(curFromNodeChild, unmatchedEl);
+                            morphEl(curFromNodeChild, unmatchedEl, alreadyVisited);
+                            curFromNodeChild = fromNextSibling;
+                            continue;
+                        }
+                    }
+
+                    var curFromNodeType = curFromNodeChild.nodeType;
+
+                    if (curFromNodeType === curToNodeChild.nodeType) {
+                        var isCompatible = false;
+
+                        if (curFromNodeType === 1) { // Both nodes being compared are Element nodes
+                            if (curFromNodeChild.tagName === curToNodeChild.tagName) {
+                                // We have compatible DOM elements
+                                if (curFromNodeId || curToNodeId) {
+                                    // If either DOM element has an ID then we handle
+                                    // those differently since we want to match up
+                                    // by ID
+                                    if (curToNodeId === curFromNodeId) {
+                                        isCompatible = true;
+                                    }
+                                } else {
+                                    isCompatible = true;
+                                }
+                            }
+
+                            if (isCompatible) {
+                                // We found compatible DOM elements so transform the current "from" node
+                                // to match the current target DOM node.
+                                morphEl(curFromNodeChild, curToNodeChild, alreadyVisited);
+                            }
+                        } else if (curFromNodeType === 3) { // Both nodes being compared are Text nodes
+                            isCompatible = true;
+                            // Simply update nodeValue on the original node to change the text value
+                            curFromNodeChild.nodeValue = curToNodeChild.nodeValue;
+                        }
+
+                        if (isCompatible) {
+                            curToNodeChild = toNextSibling;
+                            curFromNodeChild = fromNextSibling;
+                            continue outer;
+                        }
+                    }
+
+                    // No compatible match so remove the old node from the DOM and continue trying
+                    // to find a match in the original DOM
+                    removeNode(curFromNodeChild, fromEl, alreadyVisited);
+                    curFromNodeChild = fromNextSibling;
+                }
+
+                if (curToNodeId) {
+                    if ((savedEl = savedEls[curToNodeId])) {
+                        morphEl(savedEl, curToNodeChild, true);
+                        curToNodeChild = savedEl; // We want to append the saved element instead
+                    } else {
+                        // The current DOM element in the target tree has an ID
+                        // but we did not find a match in any of the corresponding
+                        // siblings. We just put the target element in the old DOM tree
+                        // but if we later find an element in the old DOM tree that has
+                        // a matching ID then we will replace the target element
+                        // with the corresponding old element and morph the old element
+                        unmatchedEls[curToNodeId] = curToNodeChild;
+                    }
+                }
+
+                // If we got this far then we did not find a candidate match for our "to node"
+                // and we exhausted all of the children "from" nodes. Therefore, we will just
+                // append the current "to node" to the end
+                fromEl.appendChild(curToNodeChild);
+
+                if (curToNodeChild.nodeType === 1 && (curToNodeId || curToNodeChild.firstChild)) {
+                    // The element that was just added to the original DOM may have
+                    // some nested elements with a key/ID that needs to be matched up
+                    // with other elements. We'll add the element to a list so that we
+                    // can later process the nested elements if there are any unmatched
+                    // keyed elements that were discarded
+                    movedEls.push(curToNodeChild);
+                }
+
+                curToNodeChild = toNextSibling;
+                curFromNodeChild = fromNextSibling;
+            }
+
+            // We have processed all of the "to nodes". If curFromNodeChild is non-null then
+            // we still have some from nodes left over that need to be removed
+            while(curFromNodeChild) {
+                fromNextSibling = curFromNodeChild.nextSibling;
+                removeNode(curFromNodeChild, fromEl, alreadyVisited);
+                curFromNodeChild = fromNextSibling;
+            }
+        }
+
+        var specialElHandler = specialElHandlers[fromEl.tagName];
+        if (specialElHandler) {
+            specialElHandler(fromEl, toEl);
+        }
+    } // END: morphEl(...)
+
+    var morphedNode = fromNode;
+    var morphedNodeType = morphedNode.nodeType;
+    var toNodeType = toNode.nodeType;
+
+    if (!childrenOnly) {
+        // Handle the case where we are given two DOM nodes that are not
+        // compatible (e.g. <div> --> <span> or <div> --> TEXT)
+        if (morphedNodeType === 1) {
+            if (toNodeType === 1) {
+                if (fromNode.tagName !== toNode.tagName) {
+                    onNodeDiscarded(fromNode);
+                    morphedNode = moveChildren(fromNode, document.createElement(toNode.tagName));
+                }
+            } else {
+                // Going from an element node to a text node
+                morphedNode = toNode;
+            }
+        } else if (morphedNodeType === 3) { // Text node
+            if (toNodeType === 3) {
+                morphedNode.nodeValue = toNode.nodeValue;
+                return morphedNode;
+            } else {
+                // Text node to something else
+                morphedNode = toNode;
+            }
+        }
+    }
+
+    if (morphedNode === toNode) {
+        // The "to node" was not compatible with the "from node"
+        // so we had to toss out the "from node" and use the "to node"
+        onNodeDiscarded(fromNode);
+    } else {
+        morphEl(morphedNode, toNode, false, childrenOnly);
+
+        /**
+         * What we will do here is walk the tree for the DOM element
+         * that was moved from the target DOM tree to the original
+         * DOM tree and we will look for keyed elements that could
+         * be matched to keyed elements that were earlier discarded.
+         * If we find a match then we will move the saved element
+         * into the final DOM tree
+         */
+        var handleMovedEl = function(el) {
+            var curChild = el.firstChild;
+            while(curChild) {
+                var nextSibling = curChild.nextSibling;
+
+                var key = getNodeKey(curChild);
+                if (key) {
+                    var savedEl = savedEls[key];
+                    if (savedEl && (curChild.tagName === savedEl.tagName)) {
+                        curChild.parentNode.replaceChild(savedEl, curChild);
+                        morphEl(savedEl, curChild, true /* already visited the saved el tree */);
+                        curChild = nextSibling;
+                        if (empty(savedEls)) {
+                            return false;
+                        }
+                        continue;
+                    }
+                }
+
+                if (curChild.nodeType === 1) {
+                    handleMovedEl(curChild);
+                }
+
+                curChild = nextSibling;
+            }
+        };
+
+        // The loop below is used to possibly match up any discarded
+        // elements in the original DOM tree with elemenets from the
+        // target tree that were moved over without visiting their
+        // children
+        if (!empty(savedEls)) {
+            handleMovedElsLoop:
+            while (movedEls.length) {
+                var movedElsTemp = movedEls;
+                movedEls = [];
+                for (var i=0; i<movedElsTemp.length; i++) {
+                    if (handleMovedEl(movedElsTemp[i]) === false) {
+                        // There are no more unmatched elements so completely end
+                        // the loop
+                        break handleMovedElsLoop;
+                    }
+                }
+            }
+        }
+
+        // Fire the "onNodeDiscarded" event for any saved elements
+        // that never found a new home in the morphed DOM
+        for (var savedElId in savedEls) {
+            if (savedEls.hasOwnProperty(savedElId)) {
+                var savedEl = savedEls[savedElId];
+                onNodeDiscarded(savedEl);
+                walkDiscardedChildNodes(savedEl);
+            }
+        }
+    }
+
+    if (!childrenOnly && morphedNode !== fromNode && fromNode.parentNode) {
+        // If we had to swap out the from node with a new node because the old
+        // node was not compatible with the target node then we need to
+        // replace the old DOM node in the original DOM tree. This is only
+        // possible if the original DOM node was part of a DOM tree which
+        // we know is the case if it has a parent node.
+        fromNode.parentNode.replaceChild(morphedNode, fromNode);
+    }
+
+    return morphedNode;
+}
+
+module.exports = morphdom;
+
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/Widget", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var inherit = require('/$/marko-widgets/$/raptor-util/inherit'/*'raptor-util/inherit'*/);
+var raptorDom = require('/$/marko-widgets/$/raptor-dom'/*'raptor-dom'*/);
+var markoWidgets = require('./');
+var raptorRenderer = require('/$/marko-widgets/$/raptor-renderer'/*'raptor-renderer'*/);
+var EventEmitter = require('/$/marko-widgets/$/events'/*'events'*/).EventEmitter;
+var listenerTracker = require('/$/marko-widgets/$/listener-tracker'/*'listener-tracker'*/);
+var arrayFromArguments = require('/$/marko-widgets/$/raptor-util/arrayFromArguments'/*'raptor-util/arrayFromArguments'*/);
+var extend = require('/$/marko-widgets/$/raptor-util/extend'/*'raptor-util/extend'*/);
+var updateManager = require('./update-manager');
+var morphdom = require('/$/marko-widgets/$/morphdom'/*'morphdom'*/);
+
+var MORPHDOM_SKIP = false;
+
+var WIDGET_SUBSCRIBE_TO_OPTIONS = null;
+var NON_WIDGET_SUBSCRIBE_TO_OPTIONS = {
+    addDestroyListener: false
+};
+
+
+var emit = EventEmitter.prototype.emit;
+var idRegExp = /\#(\w+)( .*)?/;
+
+var lifecycleEventMethods = {
+    'beforeDestroy': 'onBeforeDestroy',
+    'destroy': 'onDestroy',
+    'beforeUpdate': 'onBeforeUpdate',
+    'update': 'onUpdate',
+    'render': 'onRender',
+    'beforeInit': 'onBeforeInit',
+    'afterInit': 'onAfterInit'
+};
+
+function removeListener(eventListenerHandle) {
+    eventListenerHandle.remove();
+}
+
+function destroyRecursive(el) {
+    raptorDom.forEachChildEl(el, function (childEl) {
+        var descendentWidget = childEl.__widget;
+        if (descendentWidget) {
+            destroy(descendentWidget, false, false);
+        }
+        destroyRecursive(childEl);
+    });
+}
+
+/**
+ * This method handles invoking a widget's event handler method
+ * (if present) while also emitting the event through
+ * the standard EventEmitter.prototype.emit method.
+ *
+ * Special events and their corresponding handler methods
+ * include the following:
+ *
+ * beforeDestroy --> onBeforeDestroy
+ * destroy       --> onDestroy
+ * beforeUpdate  --> onBeforeUpdate
+ * update        --> onUpdate
+ * render        --> onRender
+ */
+function emitLifecycleEvent(widget, eventType, eventArg) {
+    var listenerMethod = widget[lifecycleEventMethods[eventType]];
+
+    if (listenerMethod) {
+        listenerMethod.call(widget, eventArg);
+    }
+
+    widget.emit(eventType, eventArg);
+}
+
+function removeDOMEventListeners(widget) {
+    var eventListenerHandles = widget.__evHandles;
+    if (eventListenerHandles) {
+        eventListenerHandles.forEach(removeListener);
+        widget.__evHandles = null;
+    }
+}
+
+function destroy(widget, removeNode, recursive) {
+    if (widget.isDestroyed()) {
+        return;
+    }
+
+    var rootEl = widget.getEl();
+
+    emitLifecycleEvent(widget, 'beforeDestroy');
+    widget.__lifecycleState = 'destroyed';
+
+    if (rootEl) {
+        if (recursive) {
+            destroyRecursive(rootEl);
+        }
+
+        if (removeNode && rootEl.parentNode) {
+            //Remove the widget's DOM nodes from the DOM tree if the root element is known
+            rootEl.parentNode.removeChild(rootEl);
+        }
+
+        rootEl.__widget = null;
+    }
+
+    // Unsubscribe from all DOM events
+    removeDOMEventListeners(widget);
+
+    if (widget.__subscriptions) {
+        widget.__subscriptions.removeAllListeners();
+        widget.__subscriptions = null;
+    }
+
+    emitLifecycleEvent(widget, 'destroy');
+}
+
+function setState(widget, name, value, forceDirty, noQueue) {
+    if (typeof value === 'function') {
+        return;
+    }
+
+    if (value === null) {
+        // Treat null as undefined to simplify our comparison logic
+        value = undefined;
+    }
+
+    if (forceDirty) {
+        var dirtyState = widget.__dirtyState || (widget.__dirtyState = {});
+        dirtyState[name] = true;
+    } else if (widget.state[name] === value) {
+        return;
+    }
+
+    var clean = !widget.__dirty;
+
+    if (clean) {
+        // This is the first time we are modifying the widget state
+        // so introduce some properties to do some tracking of
+        // changes to the state
+        var currentState = widget.state;
+        widget.__dirty = true; // Mark the widget state as dirty (i.e. modified)
+        widget.__oldState = currentState;
+        widget.state = extend({}, currentState);
+        widget.__stateChanges = {};
+    }
+
+    widget.__stateChanges[name] = value;
+
+    if (value == null) {
+        // Don't store state properties with an undefined or null value
+        delete widget.state[name];
+    } else {
+        // Otherwise, store the new value in the widget state
+        widget.state[name] = value;
+    }
+
+    if (clean && noQueue !== true) {
+        // If we were clean before then we are now dirty so queue
+        // up the widget for update
+        updateManager.queueWidgetUpdate(widget);
+    }
+}
+
+function replaceState(widget, newState, noQueue) {
+    var k;
+
+    for (k in widget.state) {
+        if (widget.state.hasOwnProperty(k) && !newState.hasOwnProperty(k)) {
+            setState(widget, k, undefined, false, noQueue);
+        }
+    }
+
+    for (k in newState) {
+        if (newState.hasOwnProperty(k)) {
+            setState(widget, k, newState[k], false, noQueue);
+        }
+    }
+}
+
+function resetWidget(widget) {
+    widget.__oldState = null;
+    widget.__dirty = false;
+    widget.__stateChanges = null;
+    widget.__newProps = null;
+    widget.__dirtyState = null;
+}
+
+function hasCompatibleWidget(widgetsContext, existingWidget) {
+    var id = existingWidget.id;
+    var newWidgetDef = widgetsContext.getWidget(id);
+    if (!newWidgetDef) {
+        return false;
+    }
+
+    return existingWidget.__type === newWidgetDef.type;
+}
+
+var widgetProto;
+
+/**
+ * Base widget type.
+ *
+ * NOTE: Any methods that are prefixed with an underscore should be considered private!
+ */
+function Widget(id, document) {
+    EventEmitter.call(this);
+    this.id = id;
+    this.el = null;
+    this.bodyEl = null;
+    this.state = null;
+    this.__subscriptions = null;
+    this.__evHandles = null;
+    this.__lifecycleState = null;
+    this.__customEvents = null;
+    this.__scope = null;
+    this.__dirty = false;
+    this.__oldState = null;
+    this.__stateChanges = null;
+    this.__updateQueued = false;
+    this.__dirtyState = null;
+    this.__document = document;
+}
+
+Widget.prototype = widgetProto = {
+    _isWidget: true,
+
+    subscribeTo: function(target) {
+        if (!target) {
+            throw new Error('target is required');
+        }
+
+        var tracker = this.__subscriptions;
+        if (!tracker) {
+            this.__subscriptions = tracker = listenerTracker.createTracker();
+        }
+
+
+        var subscribeToOptions = target._isWidget ?
+            WIDGET_SUBSCRIBE_TO_OPTIONS :
+            NON_WIDGET_SUBSCRIBE_TO_OPTIONS;
+
+        return tracker.subscribeTo(target, subscribeToOptions);
+    },
+
+    emit: function(eventType) {
+        var customEvents = this.__customEvents;
+        var targetMethodName;
+        var args;
+
+        if (customEvents && (targetMethodName = customEvents[eventType])) {
+            args = args || arrayFromArguments(arguments, 1);
+            args.push(this);
+
+            var targetWidget = markoWidgets.getWidgetForEl(this.__scope);
+            var targetMethod = targetWidget[targetMethodName];
+            if (!targetMethod) {
+                throw new Error('Method not found for widget ' + targetWidget.id + ': ' + targetMethodName);
+            }
+
+            targetMethod.apply(targetWidget, args);
+        }
+
+        return emit.apply(this, arguments);
+    },
+    getElId: function (widgetElId, index) {
+        var elId = widgetElId != null ? this.id + '-' + widgetElId : this.id;
+
+        if (index != null) {
+            elId += '[' + index + ']';
+        }
+
+        return elId;
+    },
+    getEl: function (widgetElId, index) {
+        if (widgetElId != null) {
+            return this.__document.getElementById(this.getElId(widgetElId, index));
+        } else {
+            return this.el || this.__document.getElementById(this.getElId());
+        }
+    },
+    getEls: function(id) {
+        var els = [];
+        var i=0;
+        while(true) {
+            var el = this.getEl(id, i);
+            if (!el) {
+                break;
+            }
+            els.push(el);
+            i++;
+        }
+        return els;
+    },
+    getWidget: function(id, index) {
+        var targetWidgetId = this.getElId(id, index);
+        return markoWidgets.getWidgetForEl(targetWidgetId, this.__document);
+    },
+    getWidgets: function(id) {
+        var widgets = [];
+        var i=0;
+        while(true) {
+            var widget = this.getWidget(id, i);
+            if (!widget) {
+                break;
+            }
+            widgets.push(widget);
+            i++;
+        }
+        return widgets;
+    },
+    destroy: function (options) {
+        options = options || {};
+        destroy(this, options.removeNode !== false, options.recursive !== false);
+    },
+    isDestroyed: function () {
+        return this.__lifecycleState === 'destroyed';
+    },
+    getBodyEl: function() {
+        return this.bodyEl;
+    },
+    setState: function(name, value) {
+        if (typeof name === 'object') {
+            // Merge in the new state with the old state
+            var newState = name;
+            for (var k in newState) {
+                if (newState.hasOwnProperty(k)) {
+                    setState(this, k, newState[k]);
+                }
+            }
+            return;
+        }
+
+        setState(this, name, value);
+    },
+
+    setStateDirty: function(name, value) {
+        if (arguments.length === 1) {
+            value = this.state[name];
+        }
+
+        setState(this, name, value, true /* forceDirty */);
+    },
+
+    _replaceState: function(newState) {
+        replaceState(this, newState, true /* do not queue an update */ );
+    },
+
+    _removeDOMEventListeners: function() {
+        removeDOMEventListeners(this);
+    },
+
+    replaceState: function(newState) {
+        replaceState(this, newState);
+    },
+
+    /**
+     * Recalculate the new state from the given props using the widget's
+     * getInitialState(props) method. If the widget does not have a
+     * getInitialState(props) then it is re-rendered with the new props
+     * as input.
+     *
+     * @param {Object} props The widget's new props
+     */
+    setProps: function(newProps) {
+        if (this.getInitialState) {
+            if (this.getInitialProps) {
+                newProps = this.getInitialProps(newProps) || {};
+            }
+            var newState = this.getInitialState(newProps);
+            this.replaceState(newState);
+            return;
+        }
+
+        if (!this.__newProps) {
+            updateManager.queueWidgetUpdate(this);
+        }
+
+        this.__newProps = newProps;
+    },
+
+    update: function() {
+        var newProps = this.__newProps;
+
+        if (this.shouldUpdate(newProps, this.state) === false) {
+            resetWidget(this);
+            return;
+        }
+
+        if (newProps) {
+            resetWidget(this);
+            this.rerender(newProps);
+            return;
+        }
+
+        if (!this.__dirty) {
+            // Don't even bother trying to update this widget since it is
+            // not marked as dirty.
+            return;
+        }
+
+        if (!this._processUpdateHandlers()) {
+            this.doUpdate(this.__stateChanges, this.__oldState);
+        }
+
+        // Reset all internal properties for tracking state changes, etc.
+        resetWidget(this);
+    },
+
+    isDirty: function() {
+        return this.__dirty;
+    },
+
+    _reset: function() {
+        resetWidget(this);
+    },
+
+    /**
+     * This method is used to process "update_<stateName>" handler functions.
+     * If all of the modified state properties have a user provided update handler
+     * then a rerender will be bypassed and, instead, the DOM will be updated
+     * looping over and invoking the custom update handlers.
+     * @return {boolean} Returns true if if the DOM was updated. False, otherwise.
+     */
+    _processUpdateHandlers: function() {
+        var stateChanges = this.__stateChanges;
+        var oldState = this.__oldState;
+
+        var handlerMethod;
+        var handlers = [];
+
+        var newValue;
+        var oldValue;
+
+        for (var propName in stateChanges) {
+            if (stateChanges.hasOwnProperty(propName)) {
+                newValue = stateChanges[propName];
+                oldValue = oldState[propName];
+
+                if (oldValue === newValue) {
+                    // Only do an update for this state property if it is actually
+                    // different from the old state or if it was forced to be dirty
+                    // using setStateDirty(propName)
+                    var dirtyState = this.__dirtyState;
+                    if (dirtyState == null || !dirtyState.hasOwnProperty(propName)) {
+                        continue;
+                    }
+                }
+
+                var handlerMethodName = 'update_' + propName;
+
+                handlerMethod = this[handlerMethodName];
+                if (handlerMethod) {
+                    handlers.push([propName, handlerMethod]);
+                } else {
+                    // This state change does not have a state handler so return false
+                    // to force a rerender
+                    return false;
+                }
+            }
+        }
+
+        // If we got here then all of the changed state properties have
+        // an update handler or there are no state properties that actually
+        // changed.
+
+        if (!handlers.length) {
+            return true;
+        }
+
+        // Otherwise, there are handlers for all of the changed properties
+        // so apply the updates using those handlers
+
+        emitLifecycleEvent(this, 'beforeUpdate');
+
+        for (var i=0, len=handlers.length; i<len; i++) {
+            var handler = handlers[i];
+            var propertyName = handler[0];
+            handlerMethod = handler[1];
+
+            newValue = stateChanges[propertyName];
+            oldValue = oldState[propertyName];
+            handlerMethod.call(this, newValue, oldValue);
+        }
+
+        emitLifecycleEvent(this, 'update');
+
+        resetWidget(this);
+
+        return true;
+    },
+
+    shouldUpdate: function(newState, newProps) {
+        return true;
+    },
+
+    doUpdate: function (stateChanges, oldState) {
+        this.rerender();
+    },
+
+    _emitLifecycleEvent: function(eventType, eventArg) {
+        emitLifecycleEvent(this, eventType, eventArg);
+    },
+
+    rerender: function(props) {
+        var self = this;
+
+        if (!self.renderer) {
+            throw new Error('Widget does not have a "renderer" property');
+        }
+
+        var elToReplace = this.__document.getElementById(self.id);
+
+        var renderer = self.renderer || self;
+        self.__lifecycleState = 'rerender';
+
+        var templateData = extend({}, props || self.state);
+
+        var global = templateData.$global = {};
+
+        global.__rerenderWidget = self;
+        global.__rerenderEl = self.el;
+        global.__rerender = true;
+
+        if (!props) {
+            global.__rerenderState = props ? null : self.state;
+        }
+
+        updateManager.batchUpdate(function() {
+            var renderResult = raptorRenderer
+                .render(renderer, templateData);
+
+            var newNode = renderResult.getNode(self.__document);
+
+            var out = renderResult.out;
+            var widgetsContext = out.global.widgets;
+
+            function onNodeDiscarded(node) {
+                var widget = node.__widget;
+                if (widget) {
+                    destroy(widget, false, false);
+                }
+            }
+
+            function onBeforeMorphEl(fromEl, toEl) {
+                var id = fromEl.id;
+                var existingWidget;
+
+                var preservedAttrs = toEl.getAttribute('data-w-preserve-attrs');
+                if (preservedAttrs) {
+                    preservedAttrs = preservedAttrs.split(/\s*[,]\s*/);
+                    for (var i=0; i<preservedAttrs.length; i++) {
+                        var preservedAttrName = preservedAttrs[i];
+                        var preservedAttrValue = fromEl.getAttribute(preservedAttrName);
+                        if (preservedAttrValue == null) {
+                            toEl.removeAttribute(preservedAttrName);
+                        } else {
+                            toEl.setAttribute(preservedAttrName, preservedAttrValue);
+                        }
+
+                    }
+                }
+
+                if (widgetsContext && id) {
+                    if (widgetsContext.isPreservedEl(id)) {
+
+                        if (widgetsContext.hasUnpreservedBody(id)) {
+                            existingWidget = fromEl.__widget;
+
+                            morphdom(existingWidget.bodyEl, toEl, {
+                                childrenOnly: true,
+                                onNodeDiscarded: onNodeDiscarded,
+                                onBeforeMorphEl: onBeforeMorphEl,
+                                onBeforeMorphElChildren: onBeforeMorphElChildren
+                            });
+                        }
+
+                        // Don't morph elements that are associated with widgets that are being
+                        // reused or elements that are being preserved. For widgets being reused,
+                        // the morphing will take place when the reused widget updates.
+                        return MORPHDOM_SKIP;
+                    } else {
+                        existingWidget = fromEl.__widget;
+                        if (existingWidget && !hasCompatibleWidget(widgetsContext, existingWidget)) {
+                            // We found a widget in an old DOM node that does not have
+                            // a compatible widget that was rendered so we need to
+                            // destroy the old widget
+                            destroy(existingWidget, false, false);
+                        }
+                    }
+                }
+            }
+
+            function onBeforeMorphElChildren(el) {
+                if (widgetsContext && el.id) {
+                    if (widgetsContext.isPreservedBodyEl(el.id)) {
+                        // Don't morph the children since they are preserved
+                        return MORPHDOM_SKIP;
+                    }
+                }
+            }
+
+            morphdom(elToReplace, newNode, {
+                onNodeDiscarded: onNodeDiscarded,
+                onBeforeMorphEl: onBeforeMorphEl,
+                onBeforeMorphElChildren: onBeforeMorphElChildren
+            });
+
+            // Trigger any 'onUpdate' events for all of the rendered widgets
+            renderResult.afterInsert(self.__document);
+
+            self.__lifecycleState = null;
+
+            if (!props) {
+                // We have re-rendered with the new state so our state
+                // is no longer dirty. Before updating a widget
+                // we check if a widget is dirty. If a widget is not
+                // dirty then we abort the update. Therefore, if the
+                // widget was queued for update and the re-rendered
+                // before the update occurred then nothing will happen
+                // at the time of the update.
+                resetWidget(self);
+            }
+        });
+    },
+
+    detach: function () {
+        raptorDom.detach(this.el);
+
+    },
+    appendTo: function (targetEl) {
+        raptorDom.appendTo(this.el, targetEl);
+    },
+    replace: function (targetEl) {
+        raptorDom.replace(this.el, targetEl);
+    },
+    replaceChildrenOf: function (targetEl) {
+        raptorDom.replaceChildrenOf(this.el, targetEl);
+    },
+    insertBefore: function (targetEl) {
+        raptorDom.insertBefore(this.el, targetEl);
+    },
+    insertAfter: function (targetEl) {
+        raptorDom.insertAfter(this.el, targetEl);
+    },
+    prependTo: function (targetEl) {
+        raptorDom.prependTo(this.el, targetEl);
+    },
+    ready: function (callback) {
+        markoWidgets.ready(callback, this);
+    },
+    $: function (arg) {
+        var jquery = markoWidgets.$;
+
+        var args = arguments;
+        if (args.length === 1) {
+            //Handle an "ondomready" callback function
+            if (typeof arg === 'function') {
+                var _this = this;
+                _this.ready(function() {
+                    arg.call(_this);
+                });
+            } else if (typeof arg === 'string') {
+                var match = idRegExp.exec(arg);
+                //Reset the search to 0 so the next call to exec will start from the beginning for the new string
+                if (match != null) {
+                    var widgetElId = match[1];
+                    if (match[2] == null) {
+                        return jquery(this.getEl(widgetElId));
+                    } else {
+                        return jquery('#' + this.getElId(widgetElId) + match[2]);
+                    }
+                } else {
+                    var rootEl = this.getEl();
+                    if (!rootEl) {
+                        throw new Error('Root element is not defined for widget');
+                    }
+                    if (rootEl) {
+                        return jquery(arg, rootEl);
+                    }
+                }
+            }
+        } else if (args.length === 2 && typeof args[1] === 'string') {
+            return jquery(arg, this.getEl(args[1]));
+        } else if (args.length === 0) {
+            return jquery(this.el);
+        }
+        return jquery.apply(window, arguments);
+    }
+};
+
+widgetProto.elId = widgetProto.getElId;
+
+inherit(Widget, EventEmitter);
+
+module.exports = Widget;
+
+});
+$rmod.remap("/marko-widgets@6.0.0-rc.1/lib/init-widgets", "init-widgets-browser");
+$rmod.def("/raptor-polyfill@1.0.2/array/_toObject", function(require, exports, module, __filename, __dirname) { var prepareString = "a"[0] != "a";
+
+// ES5 9.9
+// http://es5.github.com/#x9.9
+module.exports = function (o) {
+    if (o == null) { // this matches both null and undefined
+        throw new TypeError("can't convert "+o+" to object");
+    }
+    // If the implementation doesn't support by-index access of
+    // string characters (ex. IE < 9), split the string
+    if (prepareString && typeof o == "string" && o) {
+        return o.split("");
+    }
+    return Object(o);
+};
+});
+$rmod.dep("/$/marko-widgets", "raptor-polyfill", "1.0.2");
+$rmod.def("/raptor-polyfill@1.0.2/array/forEach", function(require, exports, module, __filename, __dirname) { // ES5 15.4.4.18
+// http://es5.github.com/#x15.4.4.18
+// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/array/forEach
+
+if (!Array.prototype.forEach) {
+    var toObject = require('./_toObject');
+
+    Array.prototype.forEach = function forEach(func, thisObj) {
+        var self = toObject(this);
+        var i = -1;
+        var length = self.length >>> 0;
+
+        // If no callback function or if callback is not a callable function
+        if (typeof func !== 'function') {
+            throw new TypeError();
+        }
+
+        while (++i < length) {
+            if (i in self) {
+                // Invoke the callback function with call, passing arguments:
+                // context, property value, property key, thisArg object context
+                func.call(thisObj, self[i], i, self);
+            }
+        }
+    };
+}
+});
+$rmod.def("/raptor-polyfill@1.0.2/string/endsWith", function(require, exports, module, __filename, __dirname) { if (!String.prototype.endsWith) {
+    String.prototype.endsWith = function(suffix, position) {
+        var str = this;
+        
+        if (position) {
+            str = str.substring(position);
+        }
+        
+        if (str.length < suffix.length) {
+            return false;
+        }
+        
+        return str.slice(0 - suffix.length) == suffix;
+    };
+}
+});
+$rmod.main("/raptor-logging@1.0.8", "lib/index");
+$rmod.dep("/$/marko-widgets", "raptor-logging", "1.0.8");
+$rmod.main("/process@0.6.0", "index");
+$rmod.dep("", "process", "0.6.0");
+$rmod.remap("/process@0.6.0/index", "browser");
+$rmod.def("/process@0.6.0/browser", function(require, exports, module, __filename, __dirname) { // shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            var source = ev.source;
+            if ((source === window || source === null) && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+function noop() {}
+
+process.on = noop;
+process.once = noop;
+process.off = noop;
+process.emit = noop;
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+});
+$rmod.def("/raptor-polyfill@1.0.2/string/startsWith", function(require, exports, module, __filename, __dirname) { if (!String.prototype.startsWith) {
+    String.prototype.startsWith = function(prefix, position) {
+        var str = this;
+        
+        if (position) {
+            str = str.substring(position);
+        }
+        
+        if (str.length < prefix.length) {
+            return false;
+        }
+        
+        return str.substring(0, prefix.length) == prefix;
+    };
+}
+});
+$rmod.def("/raptor-logging@1.0.8/lib/Logger", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+var logging;
+var LogLevel;
+var slice = [].slice;
+
+function LogEvent(logger, logLevel, args) {
+    this.logger = logger;
+    this.logLevel = logLevel;
+    this.args = slice.call(args);
+}
+
+/**
+ * @returns {String} name of the logger associated with the log event
+ */
+LogEvent.prototype.getLoggerName = function() {
+    return this.logger._loggerName;
+};
+
+function Logger(loggerConfig, loggerName, appenders) {
+    this._loggingModifiedFlag = logging._modifiedFlag;
+
+    // name of this logger
+    this._loggerName = loggerName;
+
+    // numeric log level
+    this._level = loggerConfig.logLevel.level;
+
+    this._appenders = appenders;
+}
+
+Logger.setLogging = function(val) {
+    logging = val;
+};
+
+Logger.setLogLevel = function(val) {
+    LogLevel = val;
+};
+
+Logger.prototype = {
+
+    /**
+     * Name of the logger (e.g. "raptor/packaging")
+
+     * @field
+     * @private
+     */
+    _loggerName: undefined,
+
+    /**
+     * Numeric log level
+
+     * @field
+     * @private
+     */
+    _level: undefined,
+
+    /**
+     * The appenders bound to this log level
+
+     * @field
+     * @private
+     */
+    _appenders: undefined,
+
+    _update: function() {
+        if (this._loggingModifiedFlag !== logging._modifiedFlag) {
+            Logger.call(
+                this,
+                logging.getLoggerConfig(this._loggerName),
+                this._loggerName,
+                logging.getAppenders());
+        }
+    },
+
+    getLogLevel: function() {
+        return LogLevel.toLogLevel(this._level);
+    },
+    
+    /**
+     * @return the numerical log level (0=TRACE to 5=FATAL)
+     */
+    getLevel: function() {
+        this._update();
+        return this._level;
+    },
+
+    /**
+     * @returns true if TRACE log level is enabled, otherwise, return false
+     */
+    isTraceEnabled: function() {
+        this._update();
+        return this._level === 0;
+    },
+
+    /**
+     * @returns true if DEBUG log level is enabled, otherwise, return false
+     */
+    isDebugEnabled: function() {
+        this._update();
+        return this._level <= 1;
+    },
+
+    /**
+     * @returns true if INFO log level is enabled, otherwise, return false
+     */
+    isInfoEnabled: function() {
+        this._update();
+        return this._level <= 2;
+    },
+
+    /**
+     * @returns true if WARN log level is enabled, otherwise, return false
+     */
+    isWarnEnabled: function() {
+        this._update();
+        return this._level <= 3;
+    },
+
+    /**
+     * @returns true if ERROR log level is enabled, otherwise, return false
+     */
+    isErrorEnabled: function() {
+        this._update();
+        return this._level <= 4;
+    },
+
+    /**
+     * @returns true if FATAL log level is enabled, otherwise, return false
+     */
+    isFatalEnabled: function() {
+        this._update();
+        return this._level <= 5;
+    },
+
+    /**
+     * Log the contents of the given object at the DEBUG level.
+     */
+    //  Derived classes can arrive to handle object dumps better
+    dump: function(obj, desc, allProps) {
+        this._update();
+        if (this._level > 1) return;
+        for (var i = 0, len = this._appenders.length; i < len; i++) {
+            var appender = this._appenders[i];
+            if (appender && appender.dump) {
+                appender.dump(obj, desc, allProps);
+            }
+        }
+    },
+
+    /**
+     * Log at TRACE level
+     */
+    trace: function() {
+        this._update();
+        if (this._level > 0) return;
+        this._log(new LogEvent(this, LogLevel.TRACE, arguments));
+    },
+
+    /**
+     * Log at DEBUG level
+     */
+    debug: function() {
+        this._update();
+        if (this._level > 1) return;
+        this._log(new LogEvent(this, LogLevel.DEBUG, arguments));
+    },
+
+    /**
+     * Log at INFO level
+     */
+    info: function() {
+        this._update();
+        if (this._level > 2) return;
+        this._log(new LogEvent(this, LogLevel.INFO, arguments));
+    },
+
+    /**
+     * Log at WARN level
+     */
+    warn: function() {
+        this._update();
+        if (this._level > 3) return;
+        this._log(new LogEvent(this, LogLevel.WARN, arguments));
+    },
+
+    /**
+     * Log at ERROR level
+     */
+    error: function() {
+        this._update();
+        if (this._level > 4) return;
+        this._log(new LogEvent(this, LogLevel.ERROR, arguments));
+    },
+
+    /**
+     * Log at FATAL level
+     */
+    fatal: function() {
+        this._update();
+        if (this._level > 5) return;
+        this._log(new LogEvent(this, LogLevel.FATAL, arguments));
+    },
+
+    /**
+     * Derived classes must implement
+     */
+    _log: function(logEvent) {
+        // loop through all of the appenders and have them log the event
+        for (var i = 0, len = this._appenders.length; i < len; i++) {
+            this._appenders[i].log(logEvent);
+        }
+    }
+};
+
+module.exports = Logger;
+});
+$rmod.main("/raptor-stacktraces@1.0.1", "lib/raptor-stacktraces");
+$rmod.dep("/$/marko-widgets/$/raptor-logging", "raptor-stacktraces", "1.0.1");
+$rmod.def("/raptor-stacktraces@1.0.1/lib/raptor-stacktraces", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+exports.trace = function(e) {
+    var out = [];
+    while (e) {
+        out.push((e.stack || e.message || e).toString());
+        
+        e = e._cause;
+        if (e) {
+            out.push('\n\nCaused by:\n');
+        }
+    }
+    return out.join('');
+};
+});
+$rmod.def("/raptor-logging@1.0.8/lib/ConsoleAppender", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+'use strict';
+
+function getConsole() {
+    if (typeof console === 'undefined') {
+        // probably IE and Developer Tools are not open
+        return null;
+    }
+
+    if (!console.log.apply || !console.log.call) {
+        // not a real log (for old IE versions)
+        return null;
+    }
+
+    return console;
+}
+
+var _console = getConsole();
+var _noop = _console ? null : function() {};
+
+function getStackTrace(error) {
+    var stacktraces = require('/$/marko-widgets/$/raptor-logging/$/raptor-stacktraces'/*'raptor-stacktraces'*/);
+    return (stacktraces && stacktraces.trace) ? stacktraces.trace(error) : (error || '');
+}
+
+function ConsoleAppender() {
+}
+
+
+ConsoleAppender.prototype = {
+    /**
+     * Log statements for all levels pass through this method.
+     */
+    log: _console ? function(logEvent) {
+        var logLevel = logEvent.logLevel;
+
+        var logFn = _console[logLevel.methodName] || _console.log;
+        if (!logFn) {
+            return;
+        }
+
+        try {
+            var args = logEvent.args.slice(0);
+            var len = args.length;
+            var error;
+
+            for (var i=0; i<len-1; i++) {
+                var arg = args[i];
+                if (arg instanceof Error) {
+                    args[i] = getStackTrace(arg);
+                }
+            }
+            
+            var lastArg = args[len-1];
+
+            if (lastArg instanceof Error) {
+                error = lastArg;
+                args[len-1] = '';
+            }
+
+            var logArgs = [logLevel.name + ' ' + logEvent.getLoggerName() + ':'].concat(args);
+
+            // log the message at the level specified
+            logFn.apply(_console, logArgs);
+
+            if (error) {
+                logFn.call(_console, error.stack || error.toString());
+
+                var cause = error._cause;
+                while (cause) {
+                    logFn.call(_console, 'Caused by:');
+                    logFn.call(_console, cause.stack || cause.toString());
+                    cause = cause._cause;
+                }
+            }
+
+            if (logLevel.level === 0) {
+                if (_console.trace) {
+                    _console.trace();
+                } else {
+                    var stackTrace = getStackTrace();
+                    if (stackTrace && _console.log) {
+                        _console.log(stackTrace);
+                    }
+                }
+            }
+
+        } catch (e) {
+            logFn = _console.error || logFn;
+            logFn.call(_console, e);
+        }
+    } : _noop,
+
+    /**
+     * Log the contents of the given object at the DEBUG level.
+     */
+    dump: _console ? function(obj, desc) {
+        if (console.debug) {
+            console.log((desc ? 'DUMP ' + desc : 'DUMP') + ':');
+            console.debug(obj);
+        }
+    } : _noop
+};
+
+module.exports = ConsoleAppender;
+
+
+});
+$rmod.remap("/raptor-logging@1.0.8/lib/resolveLoggerName", "resolveLoggerName-browser");
+$rmod.def("/raptor-logging@1.0.8/lib/resolveLoggerName-browser", function(require, exports, module, __filename, __dirname) { module.exports = function(module) {
+    if (!module) {
+        return '';
+    }
+
+    if (typeof module === 'string') {
+        return module;
+    }
+
+    return module.id || module.toString();
+};
+});
+$rmod.def("/raptor-logging@1.0.8/lib/raptor-logging-impl", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ require('/$/marko-widgets/$/raptor-polyfill/string/startsWith'/*'raptor-polyfill/string/startsWith'*/);
+
+var Logger = require('./Logger');
+var logLevels = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL', 'OFF'];
+var LogLevel = {};
+var _loggerConfigs;
+var _rootLoggerConfig;
+var _appenders = [];
+var loggerConfigsByName = {};
+var ConsoleAppender = require('./ConsoleAppender');
+
+var resolveLoggerName = require('./resolveLoggerName');
+
+function toLogLevel(logLevelName) {
+    if (logLevelName && logLevelName.toUpperCase) {
+        return LogLevel[logLevelName.toUpperCase()] || LogLevel.TRACE;
+    } else {
+        return LogLevel.TRACE;
+    }
+}
+
+function createLogLevel(logLevel, index) {
+    return {
+        name: logLevel,
+        level: index,
+        methodName: logLevel.toLowerCase(),
+        toString: function() {
+            return logLevel;
+        }
+    };
+}
+
+function _configureLogger(loggerName, config) {
+
+    var levelName;
+
+    if (typeof config === 'string') {
+        levelName = config;
+    }
+    else {
+        levelName = config.levelName || config.level;
+    }
+
+    var loggerConfig = {
+        levelName: levelName,
+        loggerName: loggerName.replace(/\./g, '/'),
+        logLevel: toLogLevel(levelName)
+    };
+
+    loggerConfigsByName[loggerName] = loggerConfig;
+
+    if (loggerName === 'ROOT') {
+        _rootLoggerConfig = loggerConfig;
+    }
+}
+
+function loggerConfigComparator(a, b) {
+    return b.loggerName.length - a.loggerName.length;
+}
+
+function _sortConfigs() {
+    _loggerConfigs = [];
+
+    for (var k in loggerConfigsByName) {
+        if (loggerConfigsByName.hasOwnProperty(k)) {
+            _loggerConfigs.push(loggerConfigsByName[k]);
+        }
+    }
+
+    _loggerConfigs.sort(loggerConfigComparator);
+}
+
+for (var i = 0; i < logLevels.length; i++) {
+    var logLevel = logLevels[i];
+    LogLevel[logLevel] = createLogLevel(logLevel, i);
+}
+
+LogLevel.toLogLevel = function(level) {
+    if (level.constructor === String) {
+        // convert log level name to LogLevel
+        return this[level];
+    } else {
+        // convert ordinal to LogLevel
+        return this[logLevels[level]];
+    }
+};
+
+Logger.setLogLevel(LogLevel);
+
+var logging = {
+    _modifiedFlag: 0,
+
+    /**
+     * enum type of all of the log levels
+     */
+    LogLevel: LogLevel,
+
+    /**
+     * @function
+     * @private
+     * @returns {Object} the configuration for the given logger
+     */
+    getLoggerConfig: function(loggerName) {
+        var i = 0,
+            len = _loggerConfigs.length,
+            curLoggerConfig,
+            curLoggerName;
+        for (; i < len; i++) {
+            curLoggerConfig = _loggerConfigs[i];
+            curLoggerName = curLoggerConfig.loggerName;
+
+            if (loggerName.startsWith(curLoggerName)) {
+                return curLoggerConfig;
+            }
+        }
+
+        return _rootLoggerConfig;
+    },
+
+    /**
+     * @private
+     * @returns {Array}
+     */
+    getLoggerConfigs: function() {
+        return _loggerConfigs;
+    },
+
+    /**
+     * @private
+     * @returns {Array}
+     */
+    getAppenders: function() {
+        return _appenders;
+    },
+
+    /**
+     * Add an appender that will be used by all loggers
+     */
+    addAppender: function(appender) {
+        _appenders.push(appender);
+    },
+
+    /**
+     * Configures the appenders that will be used by the logging subsystem. The given appenders
+     * will replace any existing appenders.
+     */
+    configureAppenders: function(appenders) {
+        _appenders = appenders;
+        logging._modifiedFlag++;
+    },
+
+    /**
+     * @param loggerName name of the logger (e.g. "raptor/packaging")
+
+     * @returns a new Logger for the given logger name
+     */
+    logger: function(loggerName) {
+
+        if (typeof loggerName === 'object' && loggerName.filename) {
+            loggerName = resolveLoggerName(loggerName.filename);
+        }
+
+        return new Logger(
+            this.getLoggerConfig(loggerName),
+            loggerName,
+            _appenders);
+    },
+
+    configureLogger: function(loggerName, config) {
+        _configureLogger(loggerName, config);
+        _sortConfigs();
+        logging._modifiedFlag++;
+    },
+
+    /**
+     * Configures the logging subsystem with the given loggers (which will replace any existing loggers).
+     *
+     * Example logger configuration:
+     * {
+     *     'raptor': {
+     *         level: 'INFO'
+     *     },
+     *     'raptor/packaging': {
+     *         level: 'DEBUG'
+     *     }
+     * }
+     *
+     * @param loggers an object whose keys are the names of loggers and whose values are the configuration for that logger
+     */
+    configureLoggers: function(loggerConfigs) {
+        var oldConfig = loggerConfigsByName;
+
+        loggerConfigsByName = {};
+        var rootFound = false;
+        for (var k in loggerConfigs) {
+            if (loggerConfigs.hasOwnProperty(k)) {
+                if (k === 'ROOT') {
+                    rootFound = true;
+                }
+
+                _configureLogger(k, loggerConfigs[k]);
+            }
+        }
+
+        if (!rootFound) {
+            _configureLogger('ROOT', 'WARN');
+        }
+
+        _sortConfigs();
+        logging._modifiedFlag++;
+
+        return oldConfig;
+    },
+
+    /**
+     * This method will configure the logging subsystem. It typically should only be called once in application code.
+     *
+     * If the given config parameter contains a "loggers" property then the value of this property will be used
+     * to replace the configuration for any existing loggers.
+     *
+     * If the given config parameter contains an "appenders" property then the value of this property will be used
+     * to replace the configuration for any existing appenders.
+     *
+     * @param config the configuration object
+     */
+    configure: function(config) {
+        if (!config) {
+            return;
+        }
+
+        if (config.appenders) {
+            // configure appenders
+            this.configureAppenders(config.appenders);
+        }
+
+        if (config.loggers) {
+            // configure loggers
+            this.configureLoggers(config.loggers);
+        }
+    },
+
+    ConsoleAppender: ConsoleAppender,
+
+    toString: function () {
+        return '[raptor-logging]';
+    }
+};
+
+Logger.setLogging(logging);
+
+logging.configure({
+    loggers: {
+        'ROOT': {
+            level: 'WARN'
+        }
+    }
+});
+
+if (typeof console !== 'undefined') {
+    logging.addAppender(new ConsoleAppender());
+}
+
+var loggingStubs = require('./raptor-logging');
+
+for (var k in logging) {
+    if (logging.hasOwnProperty(k)) {
+        loggingStubs[k] = logging[k];
+    }
+}
+});
+$rmod.def("/raptor-logging@1.0.8/lib/raptor-logging", function(require, exports, module, __filename, __dirname) { var process=require("process"); var EMPTY_FUNC = function() {
+        return false;
+    },
+    /**
+     * @name raptor/logging/voidLogger
+     */
+    voidLogger = {
+
+        /**
+         *
+         */
+        isTraceEnabled: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        isDebugEnabled: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        isInfoEnabled: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        isWarnEnabled: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        isErrorEnabled: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        isFatalEnabled: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        dump: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        trace: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        debug: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        info: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        warn: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        error: EMPTY_FUNC,
+
+        /**
+         *
+         */
+        fatal: EMPTY_FUNC
+    };
+
+var stubs = {
+    /**
+     *
+     * @param className
+     * @returns
+     */
+    logger: function() {
+        return voidLogger;
+    },
+
+    configure: EMPTY_FUNC,
+
+    voidLogger: voidLogger
+};
+
+
+module.exports = stubs;
+
+if (!process.browser) {
+    var implPath;
+
+    try {
+        implPath = require.resolve('./raptor-logging-impl');
+    } catch(e) {
+        /*
+        Fixes https://github.com/raptorjs/raptor-logging/issues/4
+        If `./raptor-logging-impl` is unable to be loaded then it means that a server bundle was built and it does
+        not support dynamic requires since the server bundle is being loaded from a different
+        directory that breaks the relative path.
+        */
+    }
+    if (implPath) {
+        require(implPath);
+    }
+}
+});
+$rmod.def("/raptor-logging@1.0.8/lib/index", function(require, exports, module, __filename, __dirname) { var g = typeof window === 'undefined' ? global : window;
+// Make this module a true singleton
+module.exports = g.__RAPTOR_LOGGING || (g.__RAPTOR_LOGGING = require('./raptor-logging'));
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/init-widgets-browser", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+require('/$/marko-widgets/$/raptor-polyfill/array/forEach'/*'raptor-polyfill/array/forEach'*/);
+require('/$/marko-widgets/$/raptor-polyfill/string/endsWith'/*'raptor-polyfill/string/endsWith'*/);
+
+var logger = require('/$/marko-widgets/$/raptor-logging'/*'raptor-logging'*/).logger(module);
+var raptorPubsub = require('/$/marko-widgets/$/raptor-pubsub'/*'raptor-pubsub'*/);
+var ready = require('/$/marko-widgets/$/raptor-dom'/*'raptor-dom'*/).ready;
+var _addEventListener = require('./addEventListener');
+var registry = require('./registry');
+
+function invokeWidgetEventHandler(widget, targetMethodName, args) {
+    var method = widget[targetMethodName];
+    if (!method) {
+        throw new Error('Widget ' + widget.id + ' does not have method named "' + targetMethodName + '"');
+    }
+
+    method.apply(widget, args);
+}
+
+function addDOMEventListener(widget, el, eventType, targetMethodName) {
+    return _addEventListener(el, eventType, function(event) {
+        invokeWidgetEventHandler(widget, targetMethodName, [event, el]);
+    });
+}
+
+function parseJSON(config) {
+    return eval('(' + config + ')');
+}
+
+function getNestedEl(widget, nestedId, document) {
+    if (nestedId == null) {
+        return null;
+
+    }
+    if (nestedId === '') {
+        return widget.getEl();
+    }
+
+    if (typeof nestedId === 'string' && nestedId.charAt(0) === '#') {
+        return document.getElementById(nestedId.substring(1));
+    } else {
+        return widget.getEl(nestedId);
+    }
+}
+
+function initWidget(
+    type,
+    id,
+    config,
+    state,
+    scope,
+    domEvents,
+    customEvents,
+    extendList,
+    bodyElId,
+    existingWidget,
+    el,
+    document) {
+
+    var i;
+    var len;
+    var eventType;
+    var targetMethodName;
+    var widget;
+
+    if (!el) {
+        el = document.getElementById(id);
+    }
+
+    if (!existingWidget) {
+        existingWidget = el.__widget;
+    }
+
+    if (existingWidget && existingWidget.__type !== type) {
+        existingWidget = null;
+    }
+
+    if (existingWidget) {
+        existingWidget._removeDOMEventListeners();
+        existingWidget._reset();
+        widget = existingWidget;
+    } else {
+        widget = registry.createWidget(type, id, document);
+    }
+
+    if (state) {
+        for (var k in state) {
+            if (state.hasOwnProperty(k)) {
+                var v = state[k];
+                if (typeof v === 'function' || v == null) {
+                    delete state[k];
+                }
+            }
+        }
+    }
+
+    widget.state = state || {}; // First time rendering so use the provided state or an empty state object
+
+    // The user-provided constructor function
+    if (logger.isDebugEnabled()) {
+        logger.debug('Creating widget: ' + type + ' (' + id + ')');
+    }
+
+    if (!config) {
+        config = {};
+    }
+
+    el.__widget = widget;
+
+    if (widget._isWidget) {
+        widget.el = el;
+        widget.bodyEl = getNestedEl(widget, bodyElId, document);
+
+        if (domEvents) {
+            var eventListenerHandles = [];
+
+            for (i=0, len=domEvents.length; i<len; i+=3) {
+                eventType = domEvents[i];
+                targetMethodName = domEvents[i+1];
+                var eventElId = domEvents[i+2];
+                var eventEl = getNestedEl(widget, eventElId, document);
+
+                // The event mapping is for a DOM event (not a custom event)
+                var eventListenerHandle = addDOMEventListener(widget, eventEl, eventType, targetMethodName);
+                eventListenerHandles.push(eventListenerHandle);
+            }
+
+            if (eventListenerHandles.length) {
+                widget.__evHandles = eventListenerHandles;
+            }
+        }
+
+        if (customEvents) {
+            widget.__customEvents = {};
+            widget.__scope = scope;
+
+            for (i=0, len=customEvents.length; i<len; i+=2) {
+                eventType = customEvents[i];
+                targetMethodName = customEvents[i+1];
+                widget.__customEvents[eventType] = targetMethodName;
+            }
+        }
+
+        if (extendList) {
+            // If one or more "w-extend" attributes were used for this
+            // widget then call those modules to now extend the widget
+            // that we created
+            for (i=0, len=extendList.length; i<len; i++) {
+                var extendType = extendList[i];
+
+                if (!existingWidget) {
+                    // Only extend a widget the first time the widget is created. If we are updating
+                    // an existing widget then we don't re-extend it
+                    var extendModule = registry.load(extendType);
+                    var extendFunc = extendModule.extendWidget || extendModule.extend;
+
+                    if (typeof extendFunc !== 'function') {
+                        throw new Error('extendWidget(widget, cfg) method missing: ' + extendType);
+                    }
+
+                    extendFunc(widget);
+                }
+            }
+        }
+    } else {
+        config.elId = id;
+        config.el = el;
+    }
+
+    if (existingWidget) {
+        widget._emitLifecycleEvent('update');
+        widget._emitLifecycleEvent('render', {});
+    } else {
+        var initEventArgs = {
+            widget: widget,
+            config: config
+        };
+
+        raptorPubsub.emit('marko-widgets/initWidget', initEventArgs);
+
+        widget._emitLifecycleEvent('beforeInit', initEventArgs);
+        widget.initWidget(config);
+        widget._emitLifecycleEvent('afterInit', initEventArgs);
+
+        widget._emitLifecycleEvent('render', { firstRender: true });
+    }
+
+    return widget;
+}
+
+function initWidgetFromEl(el) {
+    if (el.__widget != null) {
+        // A widget is already bound to this element. Nothing to do...
+        return;
+    }
+
+    var document = el.ownerDocument;
+    var scope;
+    var id = el.id;
+    var type = el.getAttribute('data-widget');
+    el.removeAttribute('data-widget');
+
+    var config = el.getAttribute('data-w-config');
+    if (config) {
+        config = parseJSON(config);
+        el.removeAttribute('data-w-config');
+    }
+
+    var state = el.getAttribute('data-w-state');
+    if (state) {
+        state = parseJSON(state);
+        el.removeAttribute('data-w-state');
+    }
+
+    var domEvents;
+    var hasDomEvents = el.getAttribute('data-w-on');
+    if (hasDomEvents) {
+        var domEventsEl = document.getElementById(id + '-$on');
+        if (domEventsEl) {
+            domEventsEl.parentNode.removeChild(domEventsEl);
+            domEvents = (domEventsEl.getAttribute('data-on') || '').split(',');
+        }
+
+        el.removeAttribute('data-w-on');
+    }
+
+    var customEvents = el.getAttribute('data-w-events');
+    if (customEvents) {
+        customEvents = customEvents.split(',');
+        scope = customEvents[0];
+        customEvents = customEvents.slice(1);
+        el.removeAttribute('data-w-events');
+    }
+
+    var extendList = el.getAttribute('data-w-extend');
+    if (extendList) {
+        extendList = extendList.split(',');
+        el.removeAttribute('data-w-extend');
+    }
+
+    var bodyElId = el.getAttribute('data-w-body');
+
+    initWidget(
+        type,
+        id,
+        config,
+        state,
+        scope,
+        domEvents,
+        customEvents,
+        extendList,
+        bodyElId,
+        null,
+        el,
+        document);
+}
+
+
+// Create a helper function handle recursion
+function initClientRendered(widgetDefs, document) {
+    document = document || window.document;
+    for (var i=0,len=widgetDefs.length; i<len; i++) {
+        var widgetDef = widgetDefs[i];
+
+        if (widgetDef.children.length) {
+            initClientRendered(widgetDef.children, document);
+        }
+
+        var widget = initWidget(
+            widgetDef.type,
+            widgetDef.id,
+            widgetDef.config,
+            widgetDef.state,
+            widgetDef.scope,
+            widgetDef.domEvents,
+            widgetDef.customEvents,
+            widgetDef.extend,
+            widgetDef.bodyElId,
+            widgetDef.existingWidget,
+            null,
+            document);
+
+        widgetDef.widget = widget;
+    }
+}
+
+/**
+ * This method is used to initialized widgets associated with UI components
+ * rendered in the browser. While rendering UI components a "widgets context"
+ * is added to the rendering context to keep up with which widgets are rendered.
+ * When ready, the widgets can then be initialized by walking the widget tree
+ * in the widgets context (nested widgets are initialized before ancestor widgets).
+ * @param  {Array<marko-widgets/lib/WidgetDef>} widgetDefs An array of WidgetDef instances
+ */
+exports.initClientRendered = initClientRendered;
+
+/**
+ * This method initializes all widgets that were rendered on the server.
+ * Widgets rendered on the server are not initialized until the "document ready"
+ * event is fired. Nested widgets are initialized before their parents.
+ */
+exports.initServerRendered = function(dataIds) {
+    function doInit() {
+        if (typeof dataIds !== 'string') {
+            var idsEl = document.getElementById('markoWidgets');
+            if (!idsEl) { // If there is no index then do nothing
+                return;
+            }
+
+            // Make sure widgets are only initialized once by checking a flag
+            if (document.markoWidgetsInitialized === true) {
+                return;
+            }
+
+            // Set flag to avoid trying to do this multiple times
+            document.markoWidgetsInitialized = true;
+
+            dataIds = idsEl ? idsEl.getAttribute('data-ids') : null;
+        }
+
+        if (dataIds) {
+            // W have a comma-separated of widget element IDs that need to be initialized
+            var ids = dataIds.split(',');
+            var len = ids.length;
+            for (var i=0; i<len; i++) {
+                var id = ids[i];
+                var el = document.getElementById(id);
+                if (!el) {
+                    logger.error('DOM node for widget with ID "' + id + '" not found');
+                    continue;
+                }
+                initWidgetFromEl(el);
+            }
+        }
+    }
+
+    if (typeof dataIds === 'string') {
+        doInit();
+    } else {
+        ready(doInit);
+    }
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/addEventListener", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * This module provides a cross-browser solution for adding event listeners
+ * to DOM elements. This code is used to handle the differences between
+ * IE and standards browsers. Older IE browsers use "attachEvent" while
+ * newer browsers using "addEventListener".
+ */
+var testEl = document.body || document.createElement('div');
+
+function IEListenerHandle(el, eventType, listener) {
+    this._info = [el, eventType, listener];
+}
+
+IEListenerHandle.prototype = {
+    remove: function() {
+        var info = this._info;
+        var el = info[0];
+        var eventType = info[1];
+        var listener = info[2];
+        el.detachEvent(eventType, listener);
+    }
+};
+
+
+function ListenerHandle(el, eventType, listener) {
+    this._info = [el, eventType, listener];
+}
+
+ListenerHandle.prototype = {
+    remove: function() {
+        var info = this._info;
+        var el = info[0];
+        var eventType = info[1];
+        var listener = info[2];
+        el.removeEventListener(eventType, listener);
+    }
+};
+
+/**
+ * Adapt an native IE event to a new event by monkey patching it
+ */
+function getIEEvent() {
+    var event = window.event;
+    // add event.target
+    event.target = event.target || event.srcElement;
+
+    event.preventDefault = event.preventDefault || function() {
+        event.returnValue = false;
+    };
+
+    event.stopPropagation = event.stopPropagation || function() {
+        event.cancelBubble = true;
+    };
+
+	event.key = (event.which + 1 || event.keyCode + 1) - 1 || 0;
+
+    return event;
+}
+
+if (!testEl.addEventListener) {
+    // IE8...
+    module.exports = function(el, eventType, listener) {
+        function wrappedListener() {
+            var event = getIEEvent();
+            listener(event);
+        }
+
+        eventType = 'on' + eventType;
+
+        el.attachEvent(eventType, wrappedListener);
+        return new IEListenerHandle(el, eventType, wrappedListener);
+    };
+} else {
+    // Non-IE8...
+    module.exports = function(el, eventType, listener) {
+        el.addEventListener(eventType, listener, false);
+        return new ListenerHandle(el, eventType, listener);
+    };
+}
+
+});
+$rmod.main("/raptor-renderer@1.4.4", "lib/raptor-renderer");
+$rmod.dep("/$/marko-widgets", "raptor-renderer", "1.4.4");
+$rmod.main("/async-writer@1.4.1", "lib/async-writer");
+$rmod.dep("/$/marko-widgets/$/raptor-renderer", "async-writer", "1.4.1");
 $rmod.def("/async-writer@1.4.1/lib/AsyncWriter", function(require, exports, module, __filename, __dirname) { var process=require("process"); /*
  * Copyright 2011 eBay Software Foundation
  *
@@ -1651,7 +4389,7 @@ BufferedWriter.prototype = {
     }
 };
 
-var EventEmitter = require('/$/marko/$/events'/*'events'*/).EventEmitter;
+var EventEmitter = require('/$/marko-widgets/$/events'/*'events'*/).EventEmitter;
 
 var includeStack = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 
@@ -2119,3793 +4857,8 @@ exports.enableAsyncStackTrace = function() {
 exports.AsyncWriter = AsyncWriter;
 
 });
-$rmod.dep("/$/marko", "raptor-util", "1.0.10");
-$rmod.def("/raptor-util@1.0.10/escapeXml", function(require, exports, module, __filename, __dirname) { var elTest = /[&<]/;
-var elTestReplace = /[&<]/g;
-var attrTest = /[&<>\"\'\n]/;
-var attrReplace = /[&<>\"\'\n]/g;
-var replacements = {
-    '<': '&lt;',
-    '>': '&gt;',
-    '&': '&amp;',
-    '"': '&quot;',
-    '\'': '&#39;',
-    '\n': '&#10;' //Preserve new lines so that they don't get normalized as space
-};
-
-function replaceChar(match) {
-    return replacements[match];
-}
-
-function escapeXml(str) {
-    // check for most common case first
-    if (typeof str === 'string') {
-        return elTest.test(str) ? str.replace(elTestReplace, replaceChar) : str;
-    }
-
-    return (str == null) ? '' : str.toString();
-}
-
-function escapeXmlAttr(str) {
-    if (typeof str === 'string') {
-        return attrTest.test(str) ? str.replace(attrReplace, replaceChar) : str;
-    }
-
-    return (str == null) ? '' : str.toString();
-}
-
-
-module.exports = escapeXml;
-escapeXml.attr = escapeXmlAttr;
-});
-$rmod.main("/marko@2.7.28/runtime", "marko-runtime");
-$rmod.def("/raptor-util@1.0.10/attr", function(require, exports, module, __filename, __dirname) { var escapeXmlAttr = require('./escapeXml').attr;
-
-module.exports = function(name, value, escapeXml) {
-    if (value === true) {
-        value = '';
-    } else if (value == null || value === '' || value === false) {
-        return '';
-    } else {
-        value = '="' + (escapeXml === false ? value : escapeXmlAttr(value)) + '"';
-    }
-    return ' ' + name + value;
-};
-});
-$rmod.def("/raptor-util@1.0.10/attrs", function(require, exports, module, __filename, __dirname) { var attr = require('./attr');
-
-module.exports = function(_attrs) {
-    var out = '';
-    for (var attrName in _attrs) {
-        if (_attrs.hasOwnProperty(attrName)) {
-            out += attr(attrName, _attrs[attrName]);
-        }
-    }
-    return out;
-};
-});
-$rmod.def("/raptor-util@1.0.10/forEach", function(require, exports, module, __filename, __dirname) { /**
- * Utility method to iterate over elements in an Array that
- * internally uses the "forEach" property of the array.
- *
- * <p>
- * If the input Array is null/undefined then nothing is done.
- *
- * <p>
- * If the input object does not have a "forEach" method then
- * it is converted to a single element Array and iterated over.
- *
- *
- * @param  {Array|Object} a An Array or an Object
- * @param  {Function} fun The callback function for each property
- * @param  {Object} thisp The "this" object to use for the callback function
- * @return {void}
- */
-module.exports = function(a, func, thisp) {
-    if (a != null) {
-        (a.forEach ? a : [a]).forEach(func, thisp);
-    }
-};
-});
-$rmod.def("/raptor-util@1.0.10/arrayFromArguments", function(require, exports, module, __filename, __dirname) { var slice = [].slice;
-
-module.exports = function(args, startIndex) {
-    if (!args) {
-        return [];
-    }
-    
-    if (startIndex) {
-        return startIndex < args.length ? slice.call(args, startIndex) : [];
-    }
-    else
-    {
-        return slice.call(args);
-    }
-};
-});
-$rmod.main("/raptor-logging@1.0.6", "lib/index");
-$rmod.dep("/$/marko", "raptor-logging", "1.0.6");
-$rmod.def("/raptor-logging@1.0.6/lib/raptor-logging", function(require, exports, module, __filename, __dirname) { var raptorLoggingImpl = './raptor-logging-impl';
-
-try {
-    raptorLoggingImpl = require.resolve(raptorLoggingImpl);
-} catch(e) {
-    raptorLoggingImpl = null;
-}
-
-var EMPTY_FUNC = function() {
-        return false;
-    },
-    /**
-     * @name raptor/logging/voidLogger
-     */
-    voidLogger = {
-        
-        /**
-         *
-         */
-        isTraceEnabled: EMPTY_FUNC,
-
-        /**
-         *
-         */
-        isDebugEnabled: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        isInfoEnabled: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        isWarnEnabled: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        isErrorEnabled: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        isFatalEnabled: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        dump: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        trace: EMPTY_FUNC,
-
-        /**
-         *
-         */
-        debug: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        info: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        warn: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        error: EMPTY_FUNC,
-        
-        /**
-         *
-         */
-        fatal: EMPTY_FUNC
-    };
-
-var stubs = {
-    /**
-     *
-     * @param className
-     * @returns
-     */
-    logger: function() {
-        return voidLogger;
-    },
-    
-    configure: EMPTY_FUNC,
-    
-    voidLogger: voidLogger
-};
-
-module.exports = raptorLoggingImpl ? require(raptorLoggingImpl) : stubs;
-});
-$rmod.def("/raptor-logging@1.0.6/lib/index", function(require, exports, module, __filename, __dirname) { var g = typeof window === 'undefined' ? global : window;
-// Make this module a true singleton
-module.exports = g.__RAPTOR_LOGGING || (g.__RAPTOR_LOGGING = require('./raptor-logging'));
-});
-$rmod.def("/marko@2.7.28/runtime/helpers", function(require, exports, module, __filename, __dirname) { /*
-* Copyright 2011 eBay Software Foundation
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*    http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-
-'use strict';
-var escapeXml = require('/$/marko/$/raptor-util/escapeXml'/*'raptor-util/escapeXml'*/);
-var escapeXmlAttr = escapeXml.attr;
-var runtime = require('./'); // Circular dependency, but that is okay
-var extend = require('/$/marko/$/raptor-util/extend'/*'raptor-util/extend'*/);
-var attr = require('/$/marko/$/raptor-util/attr'/*'raptor-util/attr'*/);
-var attrs = require('/$/marko/$/raptor-util/attrs'/*'raptor-util/attrs'*/);
-var forEach = require('/$/marko/$/raptor-util/forEach'/*'raptor-util/forEach'*/);
-var markoRegExp = /.html|\.marko(.xml|.html)?$/;
-var arrayFromArguments = require('/$/marko/$/raptor-util/arrayFromArguments'/*'raptor-util/arrayFromArguments'*/);
-var logger = require('/$/marko/$/raptor-logging'/*'raptor-logging'*/).logger(module);
-
-var viewEngine;
-var req = require;
-
-try {
-    viewEngine = req('view-engine');
-} catch(e) {}
-
-function notEmpty(o) {
-    if (o == null) {
-        return false;
-    } else if (Array.isArray(o)) {
-        return !!o.length;
-    } else if (o === '') {
-        return false;
-    }
-
-    return true;
-}
-
-function createDeferredRenderer(handler) {
-    function deferredRenderer(input, out) {
-        deferredRenderer.renderer(input, out);
-    }
-
-    // This is the initial function that will do the rendering. We replace
-    // the renderer with the actual renderer func on the first render
-    deferredRenderer.renderer = function(input, out) {
-        var rendererFunc = handler.renderer || handler.render;
-        if (typeof rendererFunc !== 'function') {
-            throw new Error('Invalid tag handler: ' + handler);
-        }
-        // Use the actual renderer from now on
-        deferredRenderer.renderer = rendererFunc;
-        rendererFunc(input, out);
-    };
-
-    return deferredRenderer;
-}
-
-var WARNED_INVOKE_BODY = 0;
-
-module.exports = {
-    /**
-     * Internal helper method to prevent null/undefined from being written out
-     * when writing text that resolves to null/undefined
-     * @private
-     */
-    s: function(str) {
-        return (str == null) ? '' : str;
-    },
-    /**
-     * Internal helper method to handle loops with a status variable
-     * @private
-     */
-    fv: function (array, callback) {
-        if (!array) {
-            return;
-        }
-        if (!array.forEach) {
-            array = [array];
-        }
-        var i = 0;
-        var len = array.length;
-        var loopStatus = {
-                getLength: function () {
-                    return len;
-                },
-                isLast: function () {
-                    return i === len - 1;
-                },
-                isFirst: function () {
-                    return i === 0;
-                },
-                getIndex: function () {
-                    return i;
-                }
-            };
-        for (; i < len; i++) {
-            var o = array[i];
-            callback(o || '', loopStatus);
-        }
-    },
-    /**
-     * Internal helper method to handle loops without a status variable
-     * @private
-     */
-    f: forEach,
-    /**
-     * Internal helper method to handle native for loops
-     * @private
-     */
-    fl: function (array, func) {
-        if (array != null) {
-            if (!Array.isArray(array)) {
-                array = [array];
-            }
-            func(array, 0, array.length);
-        }
-    },
-    /**
-     * Internal helper method for looping over the properties of any object
-     * @private
-     */
-    fp: function (o, func) {
-        if (!o) {
-            return;
-        }
-        for (var k in o) {
-            if (o.hasOwnProperty(k)) {
-                func(k, o[k]);
-            }
-        }
-    },
-    /**
-     * Internal method to check if an object/array is empty
-     * @private
-     */
-    e: function (o) {
-        return !notEmpty(o);
-    },
-    /**
-     * Internal method to check if an object/array is not empty
-     * @private
-     */
-    ne: notEmpty,
-    /**
-     * Internal method to escape special XML characters
-     * @private
-     */
-    x: escapeXml,
-    /**
-     * Internal method to escape special XML characters within an attribute
-     * @private
-     */
-    xa: escapeXmlAttr,
-    /**
-     * Internal helper to prevent an object from being escaped
-     * @private
-     */
-    nx: function (str) {
-        return {
-            toString: function () {
-                return str;
-            }
-        };
-    },
-    /**
-     * Internal method to render a single HTML attribute
-     * @private
-     */
-    a: attr,
-
-    /**
-     * Internal method to render multiple HTML attributes based on the properties of an object
-     * @private
-     */
-    as: attrs,
-    /**
-     * Loads a template
-     */
-    l: function(path, req) {
-        if (typeof path === 'string') {
-            if (path.charAt(0) === '.' && req.resolve) { // Check if the path is relative
-                // The path is relative so use require.resolve to fully resolve the path
-                path = req.resolve(path);
-            }
-
-            if (!viewEngine || markoRegExp.test(path)) {
-                return runtime.load(path);
-            } else {
-                return viewEngine.load(path);
-            }
-        } else if (path.render) {
-            // Assume it is already a pre-loaded template
-            return path;
-        } else {
-            return runtime.load(path);
-        }
-    },
-    /**
-     * Returns the render function for a tag handler
-     */
-    r: function(handler) {
-
-        var renderer = handler.renderer;
-
-        if (renderer) {
-            return renderer;
-        }
-
-        if (typeof handler === 'function') {
-            return handler;
-        }
-
-        if (typeof (renderer = handler.render) === 'function') {
-            return renderer;
-        }
-
-        // If the user code has a circular function then the renderer function
-        // may not be available on the module. Since we can't get a reference
-        // to the actual renderer(input, out) function right now we lazily
-        // try to get access to it later.
-        return createDeferredRenderer(handler);
-    },
-
-    // ----------------------------------
-    // The helpers listed below require an out
-    // ----------------------------------
-
-
-    /**
-     * Invoke a tag handler render function
-     */
-    t: function (out, renderFunc, input, renderBody, options) {
-        if (!input) {
-            input = {};
-        }
-
-        var hasOutParam;
-        var targetProperty;
-        var parent;
-        var hasNestedTags;
-        var isRepeated;
-
-        if (options) {
-            hasOutParam = options.hasOutParam;
-            parent = options.parent;
-            targetProperty = options.targetProperty;
-            hasNestedTags = options.hasNestedTags;
-            isRepeated = options.isRepeated;
-        }
-
-        if (renderBody) {
-            if (hasNestedTags) {
-                renderBody(out, input);
-            } else {
-                input.renderBody = renderBody;
-                input.invokeBody = function() {
-                    if (!WARNED_INVOKE_BODY) {
-                        WARNED_INVOKE_BODY = 1;
-                        logger.warn('invokeBody(...) deprecated. Use renderBody(out) instead.', new Error().stack);
-                    }
-
-                    if (!hasOutParam) {
-                        var args = arrayFromArguments(arguments);
-                        args.unshift(out);
-                        renderBody.apply(this, args);
-                    } else {
-                        renderBody.apply(this, arguments);
-                    }
-                };
-            }
-        }
-
-        if (renderFunc) {
-            renderFunc(input, out);
-        } else if (targetProperty) {
-            if (isRepeated) {
-                var existingArray = parent[targetProperty];
-                if (existingArray) {
-                    existingArray.push(input);
-                } else {
-                    parent[targetProperty] = [input];
-                }
-            } else {
-                parent[targetProperty] = input;
-            }
-        }
-    },
-    /**
-     * Internal helper method that captures the output of rendering.
-     * This function works by swapping out the underlying writer to
-     * a temporary writer that buffers a string. The provided function
-     * is executed and the old writer is restored. Finally, the buffered
-     * string is returned.
-     */
-    c: function (out, func) {
-        var output = out.captureString(func);
-        return {
-            toString: function () {
-                return output;
-            }
-        };
-    },
-    /**
-     * Internal method to handle includes/partials
-     * @private
-     */
-    i: function(out, path, data) {
-        if (!path) {
-            return;
-        }
-
-        if (data.body) {
-            data.invokeBody = function() {
-                if (!WARNED_INVOKE_BODY) {
-                    WARNED_INVOKE_BODY = 1;
-                    logger.warn('data.invokeBody() deprecated. Use data.body instead.', new Error().stack);
-                }
-                return data.body;
-            };
-        }
-
-        if (typeof path === 'string') {
-            runtime.render(path, data, out);
-        } else if (typeof path.render === 'function') {
-            path.render(data, out);
-        } else {
-            throw new Error('Invalid template');
-        }
-
-        return this;
-    },
-    /**
-     * Internal helper method to do a shallow copy of the properties of one object to another.
-     * @private
-     */
-    xt: extend
-};
-
-});
-$rmod.def("/raptor-util@1.0.10/extend", function(require, exports, module, __filename, __dirname) { module.exports = function extend(target, source) { //A simple function to copy properties from one object to another
-    if (!target) { //Check if a target was provided, otherwise create a new empty object to return
-        target = {};
-    }
-
-    if (source) {
-        for (var propName in source) {
-            if (source.hasOwnProperty(propName)) { //Only look at source properties that are not inherited
-                target[propName] = source[propName]; //Copy the property
-            }
-        }
-    }
-
-    return target;
-};
-});
-$rmod.def("/raptor-util@1.0.10/inherit", function(require, exports, module, __filename, __dirname) { var extend = require('./extend');
-
-function _inherit(clazz, superclass, copyProps) { //Helper function to setup the prototype chain of a class to inherit from another class's prototype
-    
-    var proto = clazz.prototype;
-    var F = function() {};
-    
-    F.prototype = superclass.prototype;
-
-    clazz.prototype = new F();
-    clazz.$super = superclass;
-
-    if (copyProps !== false) {
-        extend(clazz.prototype, proto);
-    }
-
-    clazz.prototype.constructor = clazz;
-    return clazz;
-}
-
-function inherit(clazz, superclass) {
-    return _inherit(clazz, superclass, true);
-}
-
-
-module.exports = inherit;
-
-inherit._inherit = _inherit;
-});
-$rmod.remap("/marko@2.7.28/runtime/loader", "loader_browser");
-$rmod.def("/marko@2.7.28/runtime/loader_browser", function(require, exports, module, __filename, __dirname) { /*
-* Copyright 2011 eBay Software Foundation
-* 
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-* 
-*    http://www.apache.org/licenses/LICENSE-2.0
-* 
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-
-module.exports = function load(templatePath) {
-    // We make the assumption that the template path is a 
-    // fully resolved module path and that the module exists
-    // as a CommonJS module
-    return require(templatePath);
-};
-});
-$rmod.def("/marko@2.7.28/runtime/marko-runtime", function(require, exports, module, __filename, __dirname) { /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/**
- * This module provides the lightweight runtime for loading and rendering
- * templates. The compilation is handled by code that is part of the
- * [marko/compiler](https://github.com/raptorjs/marko/tree/master/compiler)
- * module. If rendering a template on the client, only the runtime is needed
- * on the client and not the compiler
- */
-
-// async-writer provides all of the magic to support asynchronous
-// rendering to a stream
-
-'use strict';
-/**
- * Method is for internal usage only. This method
- * is invoked by code in a compiled Marko template and
- * it is used to create a new Template instance.
- * @private
- */
-exports.c = function createTemplate(path) {
-    return new Template(path);
-};
-
-var BUFFER_OPTIONS = { buffer: true };
-
-var asyncWriter = require('/$/marko/$/async-writer'/*'async-writer'*/);
-
-// helpers provide a core set of various utility methods
-// that are available in every template (empty, notEmpty, etc.)
-var helpers = require('./helpers');
-
-var loader;
-
-// If the optional "stream" module is available
-// then Readable will be a readable stream
-var Readable;
-
-var AsyncWriter = asyncWriter.AsyncWriter;
-var extend = require('/$/marko/$/raptor-util/extend'/*'raptor-util/extend'*/);
-
-
-
-exports.AsyncWriter = AsyncWriter;
-
-var stream;
-var STREAM = 'stream';
-
-var streamPath;
-try {
-    streamPath = require.resolve(STREAM);
-} catch(e) {}
-
-if (streamPath) {
-    stream = require(streamPath);
-}
-
-function renderCallback(renderFunc, data, globalData, callback) {
-    var out = new AsyncWriter();
-    if (globalData) {
-        extend(out.global, globalData);
-    }
-
-    renderFunc(data, out);
-    return out.end()
-        .on('finish', function() {
-            callback(null, out.getOutput(), out);
-        })
-        .once('error', callback);
-}
-
-function Template(path, func, options) {
-    this.path = path;
-    this._ = func;
-    this._options = !options || options.buffer !== false ?
-        BUFFER_OPTIONS : null;
-}
-
-Template.prototype = {
-    /**
-     * Internal method to initialize a loaded template with a
-     * given create function that was generated by the compiler.
-     * Warning: User code should not depend on this method.
-     *
-     * @private
-     * @param  {Function(__helpers)} createFunc The function used to produce the render(data, out) function.
-     */
-    c: function(createFunc) {
-        this._ = createFunc(helpers);
-    },
-    renderSync: function(data) {
-        var out = new AsyncWriter();
-        out.sync();
-
-        if (data.$global) {
-            out.global = extend(out.global, data.$global);
-            delete data.$global;
-        }
-
-        this._(data, out);
-        return out.getOutput();
-    },
-
-    /**
-     * Renders a template to either a stream (if the last
-     * argument is a Stream instance) or
-     * provides the output to a callback function (if the last
-     * argument is a Function).
-     *
-     * Supported signatures:
-     *
-     * render(data, callback)
-     * render(data, out)
-     * render(data, stream)
-     * render(data, out, callback)
-     * render(data, stream, callback)
-     *
-     * @param  {Object} data The view model data for the template
-     * @param  {AsyncWriter} out A Stream or an AsyncWriter instance
-     * @param  {Function} callback A callback function
-     * @return {AsyncWriter} Returns the AsyncWriter instance that the template is rendered to
-     */
-    render: function(data, out, callback) {
-        var renderFunc = this._;
-        var finalData;
-        var globalData;
-        if (data) {
-            finalData = data;
-
-            if ((globalData = data.$global)) {
-                // We will *move* the "$global" property
-                // into the "out.global" object
-                delete data.$global;
-            }
-        } else {
-            finalData = {};
-        }
-
-        if (typeof out === 'function') {
-            // Short circuit for render(data, callback)
-            return renderCallback(renderFunc, finalData, globalData, out);
-        }
-
-        // NOTE: We create new vars here to avoid a V8 de-optimization due
-        //       to the following:
-        //       Assignment to parameter in arguments object
-        var finalOut = out;
-
-        var shouldEnd = false;
-
-        if (arguments.length === 3) {
-            // render(data, out, callback)
-            if (!finalOut || !finalOut.isAsyncWriter) {
-                finalOut = new AsyncWriter(finalOut);
-                shouldEnd = true;
-            }
-
-            finalOut
-                .on('finish', function() {
-                    callback(null, finalOut.getOutput(), finalOut);
-                })
-                .once('error', callback);
-        } else if (!finalOut || !finalOut.isAsyncWriter) {
-            // Assume the "finalOut" is really a stream
-            //
-            // By default, we will buffer rendering to a stream to prevent
-            // the response from being "too chunky".
-            finalOut = asyncWriter.create(finalOut, this._options);
-            shouldEnd = true;
-        }
-
-        if (globalData) {
-            extend(finalOut.global, globalData);
-        }
-
-        // Invoke the compiled template's render function to have it
-        // write out strings to the provided out.
-        renderFunc(finalData, finalOut);
-
-        // Automatically end output stream (the writer) if we
-        // had to create an async writer (which might happen
-        // if the caller did not provide a writer/out or the
-        // writer/out was not an AsyncWriter).
-        //
-        // If out parameter was originally an AsyncWriter then
-        // we assume that we are writing to output that was
-        // created in the context of another rendering job.
-        return shouldEnd ? finalOut.end() : finalOut;
-    },
-    stream: function(data) {
-        if (!stream) {
-            throw new Error('Module not found: stream');
-        }
-
-        return new Readable(this, data, this._options);
-    }
-};
-
-if (stream) {
-    Readable = function(template, data, options) {
-        Readable.$super.call(this);
-        this._t = template;
-        this._d = data;
-        this._options = options;
-        this._rendered = false;
-    };
-
-    Readable.prototype = {
-        write: function(data) {
-            if (data != null) {
-                this.push(data);
-            }
-        },
-        end: function() {
-            this.push(null);
-        },
-        _read: function() {
-            if (this._rendered) {
-                return;
-            }
-
-            this._rendered = true;
-
-            var template = this._t;
-            var data = this._d;
-
-            var out = asyncWriter.create(this, this._options);
-            template.render(data, out);
-            out.end();
-        }
-    };
-
-    require('/$/marko/$/raptor-util/inherit'/*'raptor-util/inherit'*/)(Readable, stream.Readable);
-}
-
-function createRenderProxy(template) {
-    return function(data, out) {
-        template._(data, out);
-    };
-}
-
-function initTemplate(rawTemplate, templatePath) {
-    if (rawTemplate.render) {
-        return rawTemplate;
-    }
-
-    var createFunc = rawTemplate.create || rawTemplate;
-
-    var template = createFunc.loaded;
-    if (!template) {
-        template = createFunc.loaded = new Template(templatePath);
-        template.c(createFunc);
-    }
-    return template;
-}
-
-function load(templatePath, templateSrc, options) {
-    if (!templatePath) {
-        throw new Error('"templatePath" is required');
-    }
-
-    if (arguments.length === 1) {
-        // templateSrc and options not provided
-    } else if (arguments.length === 2) {
-        // see if second argument is templateSrc (a String)
-        // or options (an Object)
-        var lastArg = arguments[arguments.length - 1];
-        if (typeof lastArg !== 'string') {
-            options = arguments[1];
-            templateSrc = undefined;
-        }
-    } else if (arguments.length === 3) {
-        // assume function called according to function signature
-    } else {
-        throw new Error('Illegal arguments');
-    }
-
-    var template;
-
-    if (typeof templatePath === 'string') {
-        template = initTemplate(loader(templatePath, templateSrc, options), templatePath);
-    } else if (templatePath.render) {
-        template = templatePath;
-    } else {
-        template = initTemplate(templatePath);
-    }
-
-    if (options && (options.buffer != null)) {
-        template = new Template(
-            template.path,
-            createRenderProxy(template),
-            options);
-    }
-
-    return template;
-}
-
-exports.load = load;
-
-/**
- * @deprecated Use load(templatePath) instead
- */
-exports.render = function (templatePath, data, out) {
-    return load(templatePath).render(data, out);
-};
-
-/**
- * @deprecated Use load(templatePath) instead
- */
-exports.stream = function(templatePath, data) {
-    return load(templatePath).stream(data);
-};
-
-exports.createWriter = function(writer) {
-    return new AsyncWriter(writer);
-};
-
-exports.helpers = helpers;
-
-exports.Template = Template;
-
-// The loader is used to load templates that have not already been
-// loaded and cached. On the server, the loader will use
-// the compiler to compile the template and then load the generated
-// module file using the Node.js module loader
-loader = require('./loader');
-
-});
-$rmod.def("/src/components/app-try-marko-app/include-target.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
-      empty = __helpers.e,
-      notEmpty = __helpers.ne,
-      escapeXml = __helpers.x;
-
-  return function render(data, out) {
-    out.w('Hello ' +
-      escapeXml(data.name) +
-      ' You have ' +
-      escapeXml(data.count) +
-      ' new messages!');
-  };
-}
-(module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
-});
-$rmod.def("/marko-layout@2.0.2/put-tag", function(require, exports, module, __filename, __dirname) { module.exports = function render(input, context) {
-    var layout = input.layout;
-    var handlePutTag = layout ? layout.handlePutTag : context.getAttribute('handlePutTag');
-    handlePutTag(input);
-};
-});
-$rmod.def("/marko-layout@2.0.2/use-tag", function(require, exports, module, __filename, __dirname) { module.exports = function render(input, context) {
-    var content = {};
-
-    if (input.getContent) {
-        input.getContent({
-            handlePutTag: function (putTag) {
-                content[putTag.into] = putTag;
-            }
-        });
-    }
-
-    var viewModel = input['*'] || {};
-    viewModel.layoutContent = content;
-    input.template.render(viewModel, context);
-};
-});
-$rmod.dep("", "marko-layout", "2.0.2");
-$rmod.def("/marko-layout@2.0.2/placeholder-tag", function(require, exports, module, __filename, __dirname) { module.exports = function render(input, out) {
-    var contentMap = input.content || out.getAttribute('layoutContent');
-    var content = contentMap ? contentMap[input.name] : null;
-    if (content) {
-        if (content.value) {
-            out.write(content.value);
-        } else if (content.renderBody) {
-            content.renderBody(out);
-        }
-    } else {
-        if (input.renderBody) {
-            input.renderBody(out);
-        }
-    }
-};
-});
-$rmod.def("/src/components/app-try-marko-app/layout-use-target.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
-      empty = __helpers.e,
-      notEmpty = __helpers.ne,
-      __renderer = __helpers.r,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js = __renderer(require("../../../../marko/node_modules/marko-layout/placeholder-tag")),
-      __tag = __helpers.t;
-
-  return function render(data, out) {
-    out.w('<div class="notification"><h1>');
-    __tag(out,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js,
-      {
-        "name": "title",
-        "content": data.layoutContent
-      },
-      function(out) {
-        out.w('DEFAULT TITLE');
-      });
-
-    out.w('</h1><div>');
-    __tag(out,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js,
-      {
-        "name": "body",
-        "content": data.layoutContent
-      },
-      function(out) {
-        out.w('DEFAULT BODY');
-      });
-
-    out.w('</div></div>');
-  };
-}
-(module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
-});
-$rmod.main("/marko-widgets@5.0.6", "lib/marko-widgets");
-$rmod.dep("", "marko-widgets", "5.0.6");
-$rmod.def("/marko-widgets@5.0.6/lib/client-init", function(require, exports, module, __filename, __dirname) { /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-require('./init-widgets').initServerRendered();
-});
-$rmod.run("/$/marko-widgets/lib/client-init");
-$rmod.main("/raptor-pubsub@1.0.5", "lib/index");
-$rmod.dep("/$/marko-widgets", "raptor-pubsub", "1.0.5");
-$rmod.dep("/$/marko-widgets", "events", "1.0.2");
-$rmod.def("/raptor-pubsub@1.0.5/lib/raptor-pubsub", function(require, exports, module, __filename, __dirname) { var EventEmitter = require('/$/marko-widgets/$/events'/*'events'*/).EventEmitter;
-
-var channels = {};
-
-var globalChannel = new EventEmitter();
-
-globalChannel.channel = function(name) {
-    var channel;
-    if (name) {
-        channel = channels[name] || (channels[name] = new EventEmitter());
-    } else {
-        channel = new EventEmitter();
-    }
-    return channel;
-};
-
-globalChannel.removeChannel = function(name) {
-    delete channels[name];
-};
-
-module.exports = globalChannel;
-
-});
-$rmod.def("/raptor-pubsub@1.0.5/lib/index", function(require, exports, module, __filename, __dirname) { var g = typeof window === 'undefined' ? global : window;
-// Make this module a true singleton
-module.exports = g.__RAPTOR_PUBSUB || (g.__RAPTOR_PUBSUB = require('./raptor-pubsub'));
-});
-$rmod.main("/raptor-dom@1.1.0", "raptor-dom-server");
-$rmod.dep("/$/marko-widgets", "raptor-dom", "1.1.0");
-$rmod.main("/try-require@1.2.1", "index");
-$rmod.dep("/$/marko-widgets/$/raptor-dom", "try-require", "1.2.1");
-$rmod.def("/try-require@1.2.1/index", function(require, exports, module, __filename, __dirname) { 'use strict';
-
-var lastError = null;
-
-var tryRequire = function tryRequire( id, req ) {
-    var path;
-    var _req = req || require;
-
-    try {
-        path = _req.resolve( id );
-
-        lastError = null;
-    } catch ( e ) {
-        lastError = e;
-    }
-
-    if ( path ) {
-        return _req( path );
-    }
-
-    return undefined;
-};
-
-var resolve = function tryRequireResolve( id, req ) {
-    var path;
-    var _req = req || require;
-
-    try {
-        path = _req.resolve( id );
-
-        lastError = null;
-    } catch ( e ) {
-        lastError = e;
-    }
-
-    return path;
-};
-
-tryRequire.resolve = resolve;
-tryRequire.lastError = function() {
-    return lastError;
-};
-
-module.exports = tryRequire;
-
-});
-$rmod.def("/raptor-dom@1.1.0/ready", function(require, exports, module, __filename, __dirname) { /*
-    jQuery's doc.ready/$(function(){}) should
-    you wish to use a cross-browser domReady solution
-    without opting for a library.
-
-    Demo: http://jsfiddle.net/zKLpb/
-
-    usage:
-    $(function(){
-        // your code
-    });
-
-    Parts: jQuery project, Diego Perini, Lucent M.
-    Previous version from Addy Osmani (https://raw.github.com/addyosmani/jquery.parts/master/jquery.documentReady.js)
-
-    This version: Patrick Steele-Idem
-    - Converted to CommonJS module
-    - Code cleanup
-    - Fixes for IE <=10
-*/
-
-var isReady = false;
-var readyBound = false;
-
-var win = window;
-var doc = document;
-
-var listeners = [];
-
-function domReadyCallback() {
-    for (var i=0, len=listeners.length; i<len; i++) {
-        var listener = listeners[i];
-        listener[0].call(listener[1]);
-    }
-    listeners = null;
-}
-
-
-
-// Handle when the DOM is ready
-function domReady() {
-    // Make sure that the DOM is not already loaded
-    if (!isReady) {
-        // Make sure body exists, at least, in case IE gets a little overzealous (ticket #5443).
-        if ( !doc.body ) {
-            return setTimeout( domReady, 1 );
-        }
-        // Remember that the DOM is ready
-        isReady = true;
-        // If there are functions bound, to execute
-        domReadyCallback();
-        // Execute all of them
-    }
-} // /ready()
-
-// The ready event handler
-function domContentLoaded() {
-    if ( doc.addEventListener ) {
-        doc.removeEventListener( "DOMContentLoaded", domContentLoaded, false );
-    } else {
-        // we're here because readyState !== "loading" in oldIE
-        // which is good enough for us to call the dom ready!
-        doc.detachEvent( "onreadystatechange", domContentLoaded );
-    }
-    domReady();
-}
-
-// The DOM ready check for Internet Explorer
-function doScrollCheck() {
-    if (isReady) {
-        return;
-    }
-
-    try {
-        // If IE is used, use the trick by Diego Perini
-        // http://javascript.nwbox.com/IEContentLoaded/
-        doc.documentElement.doScroll("left");
-    } catch ( error ) {
-        setTimeout( doScrollCheck, 1 );
-        return;
-    }
-    // and execute any waiting functions
-    domReady();
-}
-
-function bindReady() {
-    var toplevel = false;
-
-    // Catch cases where $ is called after the
-    // browser event has already occurred. IE <= 10 has a bug that results in 'interactive' being assigned
-    // to the readyState before the DOM is really ready
-    if ( document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading" ) {
-        // We will get here if the browser is IE and the readyState === 'complete' or the browser
-        // is not IE and the readyState === 'interactive' || 'complete'
-		domReady();
-	} else if ( doc.addEventListener ) { // Standards-based browsers support DOMContentLoaded
-        // Use the handy event callback
-        doc.addEventListener( "DOMContentLoaded", domContentLoaded, false );
-        // A fallback to win.onload, that will always work
-        win.addEventListener( "load", domContentLoaded, false );
-        // If IE event model is used
-    } else if ( doc.attachEvent ) {
-        // ensure firing before onload,
-        // maybe late but safe also for iframes
-        doc.attachEvent( "onreadystatechange", domContentLoaded );
-        // A fallback to win.onload, that will always work
-        win.attachEvent( "onload", domContentLoaded );
-        // If IE and not a frame
-        // continually check to see if the document is ready
-        try {
-            toplevel = win.frameElement == null;
-        } catch (e) {}
-        if ( doc.documentElement.doScroll && toplevel ) {
-            doScrollCheck();
-        }
-    }
-}
-
-module.exports = function(callback, thisObj) {
-    if (isReady) {
-        return callback.call(thisObj);
-    }
-
-    listeners.push([callback, thisObj]);
-
-    if (!readyBound) {
-        readyBound = true;
-        bindReady();
-    }
-};
-});
-$rmod.remap("/raptor-dom@1.1.0/raptor-dom-server", "raptor-dom-client");
-$rmod.def("/raptor-dom@1.1.0/raptor-dom-client", function(require, exports, module, __filename, __dirname) { var tryRequire = require('/$/marko-widgets/$/raptor-dom/$/try-require'/*'try-require'*/);
-var raptorPubsub = tryRequire('raptor-pubsub', require);
-
-function getNode(el) {
-    if (typeof el === 'string') {
-        var elId = el;
-        el = document.getElementById(elId);
-        if (!el) {
-            throw new Error('Target element not found: "' + elId + '"');
-        }
-    }
-    return el;
-}
-
-function _beforeRemove(referenceEl) {
-    if (raptorPubsub) {
-        raptorPubsub.emit('dom/beforeRemove', { el: referenceEl });
-    }
-}
-
-var dom = {
-    forEachChildEl: function (node, callback, scope) {
-        dom.forEachChild(node, callback, scope, 1);
-    },
-    forEachChild: function (node, callback, scope, nodeType) {
-        if (!node) {
-            return;
-        }
-        var i = 0;
-        var childNodes = node.childNodes;
-        var len = childNodes.length;
-        for (; i < len; i++) {
-            var childNode = childNodes[i];
-            if (childNode && (nodeType == null || nodeType == childNode.nodeType)) {
-                callback.call(scope, childNode);
-            }
-        }
-    },
-    detach: function (child) {
-        child = getNode(child);
-        child.parentNode.removeChild(child);
-    },
-    appendTo: function (newChild, referenceParentEl) {
-        getNode(referenceParentEl).appendChild(getNode(newChild));
-    },
-    remove: function (el) {
-        el = getNode(el);
-        _beforeRemove(el);
-        if (el.parentNode) {
-            el.parentNode.removeChild(el);
-        }
-    },
-    removeChildren: function (parentEl) {
-        parentEl = getNode(parentEl);
-
-        var i = 0;
-        var childNodes = parentEl.childNodes;
-        var len = childNodes.length;
-        for (; i < len; i++) {
-            var childNode = childNodes[i];
-            if (childNode && childNode.nodeType === 1) {
-                _beforeRemove(childNode);
-            }
-        }
-        parentEl.innerHTML = '';
-    },
-    replace: function (newChild, replacedChild) {
-        replacedChild = getNode(replacedChild);
-        _beforeRemove(replacedChild);
-        replacedChild.parentNode.replaceChild(getNode(newChild), replacedChild);
-    },
-    replaceChildrenOf: function (newChild, referenceParentEl) {
-        referenceParentEl = getNode(referenceParentEl);
-        dom.forEachChildEl(referenceParentEl, function (childEl) {
-            _beforeRemove(childEl);
-        });
-        referenceParentEl.innerHTML = '';
-        referenceParentEl.appendChild(getNode(newChild));
-    },
-    insertBefore: function (newChild, referenceChild) {
-        referenceChild = getNode(referenceChild);
-        referenceChild.parentNode.insertBefore(getNode(newChild), referenceChild);
-    },
-    insertAfter: function (newChild, referenceChild) {
-        referenceChild = getNode(referenceChild);
-        newChild = getNode(newChild);
-        var nextSibling = referenceChild.nextSibling;
-        var parentNode = referenceChild.parentNode;
-        if (nextSibling) {
-            parentNode.insertBefore(newChild, nextSibling);
-        } else {
-            parentNode.appendChild(newChild);
-        }
-    },
-    prependTo: function (newChild, referenceParentEl) {
-        referenceParentEl = getNode(referenceParentEl);
-        referenceParentEl.insertBefore(getNode(newChild), referenceParentEl.firstChild || null);
-    }
-};
-
-/*
-var jquery = window.$;
-if (!jquery) {
-    try {
-        jquery = require('jquery');
-    }
-    catch(e) {}
-}
-
-if (jquery) {
-    dom.ready = function(callback, thisObj) {
-        jquery(function() {
-            callback.call(thisObj);
-        });
-    };
-} else {
-    dom.ready = require('./raptor-dom_documentReady');
-}
-*/
-dom.ready = require('./ready');
-
-module.exports = dom;
-
-});
-$rmod.dep("/$/marko-widgets", "raptor-util", "1.0.10");
-$rmod.main("/marko-widgets@5.0.6/lib", "marko-widgets");
-$rmod.main("/listener-tracker@1.0.5", "lib/listener-tracker");
-$rmod.dep("/$/marko-widgets", "listener-tracker", "1.0.5");
-$rmod.def("/listener-tracker@1.0.5/lib/listener-tracker", function(require, exports, module, __filename, __dirname) { var INDEX_EVENT = 0;
-var INDEX_USER_LISTENER = 1;
-var INDEX_WRAPPED_LISTENER = 2;
-
-function EventEmitterWrapper(target) {
-    this._target = target;
-    this._listeners = [];
-    this._subscribeTo = null;
-}
-
-EventEmitterWrapper.prototype = {
-    _onProxy: function(type, event, listener) {
-        this._target[type](event, listener);
-        this._listeners.push([event, listener]);
-        return this;
-    },
-
-    _remove: function(test, testWrapped) {
-        var target = this._target;
-        var listeners = this._listeners;
-
-        this._listeners = listeners.filter(function(curListener) {
-            var curEvent = curListener[INDEX_EVENT];
-            var curListenerFunc = curListener[INDEX_USER_LISTENER];
-            var curWrappedListenerFunc = curListener[INDEX_WRAPPED_LISTENER];
-
-            if (testWrapped) {
-                // If the user used `once` to attach an event listener then we had to
-                // wrap their listener function with a new function that does some extra
-                // cleanup to avoid a memory leak. If the `testWrapped` flag is set to true
-                // then we are attempting to remove based on a function that we had to
-                // wrap (not the user listener function)
-                if (curWrappedListenerFunc && test(curEvent, curWrappedListenerFunc)) {
-                    target.removeListener(curEvent, curWrappedListenerFunc);
-                    return false;
-                }
-            } else if (test(curEvent, curListenerFunc)) {
-                // If the listener function was wrapped due to it being a `once` listener
-                // then we should remove from the target EventEmitter using wrapped
-                // listener function. Otherwise, we remove the listener using the user-provided
-                // listener function.
-                target.removeListener(curEvent, curWrappedListenerFunc || curListenerFunc);
-                return false;
-            }
-
-            return true;
-        });
-
-        // Fixes https://github.com/raptorjs/listener-tracker/issues/2
-        // If all of the listeners stored with a wrapped EventEmitter
-        // have been removed then we should unregister the wrapped
-        // EventEmitter in the parent SubscriptionTracker
-        var subscribeTo = this._subscribeTo;
-
-        if (this._listeners.length === 0 && subscribeTo) {
-            var self = this;
-            var subscribeToList = subscribeTo._subscribeToList;
-            subscribeTo._subscribeToList = subscribeToList.filter(function(cur) {
-                return cur !== self;
-            });
-        }
-    },
-
-    on: function(event, listener) {
-        return this._onProxy('on', event, listener);
-    },
-
-    once: function(event, listener) {
-        var self = this;
-
-        // Handling a `once` event listener is a little tricky since we need to also
-        // do our own cleanup if the `once` event is emitted. Therefore, we need
-        // to wrap the user's listener function with our own listener function.
-        var wrappedListener = function() {
-            self._remove(function(event, listenerFunc) {
-                return wrappedListener === listenerFunc;
-            }, true /* We are removing the wrapped listener */);
-
-            listener.apply(this, arguments);
-        };
-
-        this._target.once(event, wrappedListener);
-        this._listeners.push([event, listener, wrappedListener]);
-        return this;
-    },
-
-    removeListener: function(event, listener) {
-        if (typeof event === 'function') {
-            listener = event;
-            event = null;
-        }
-
-        if (listener && event) {
-            this._remove(function(curEvent, curListener) {
-                return event === curEvent && listener === curListener;
-            });
-        } else if (listener) {
-            this._remove(function(curEvent, curListener) {
-                return listener === curListener;
-            });
-        } else if (event) {
-            this.removeAllListeners(event);
-        }
-
-        return this;
-    },
-
-    removeAllListeners: function(event) {
-
-        var listeners = this._listeners;
-        var target = this._target;
-
-        if (event) {
-            this._remove(function(curEvent, curListener) {
-                return event === curEvent;
-            });
-        } else {
-            for (var i = listeners.length - 1; i >= 0; i--) {
-                var cur = listeners[i];
-                target.removeListener(cur[INDEX_EVENT], cur[INDEX_USER_LISTENER]);
-            }
-            this._listeners.length = 0;
-        }
-
-        return this;
-    }
-};
-
-EventEmitterWrapper.prototype.addListener = EventEmitterWrapper.prototype.on;
-
-function SubscriptionTracker() {
-    this._subscribeToList = [];
-}
-
-SubscriptionTracker.prototype = {
-
-    subscribeTo: function(target, options) {
-        var addDestroyListener = !options || options.addDestroyListener !== false;
-
-        var wrapper;
-        var subscribeToList = this._subscribeToList;
-
-        for (var i=0, len=subscribeToList.length; i<len; i++) {
-            var cur = subscribeToList[i];
-            if (cur._target === target) {
-                wrapper = cur;
-                break;
-            }
-        }
-
-        if (!wrapper) {
-            wrapper = new EventEmitterWrapper(target);
-            if (addDestroyListener) {
-                wrapper.once('destroy', function() {
-                    wrapper.removeAllListeners();
-
-                    for (var i = subscribeToList.length - 1; i >= 0; i--) {
-                        if (subscribeToList[i]._target === target) {
-                            subscribeToList.splice(i, 1);
-                            break;
-                        }
-                    }
-                });
-            }
-
-            // Store a reference to the parent SubscriptionTracker so that we can do cleanup
-            // if the EventEmitterWrapper instance becomes empty (i.e., no active listeners)
-            wrapper._subscribeTo = this;
-            subscribeToList.push(wrapper);
-        }
-
-        return wrapper;
-    },
-
-    removeAllListeners: function(target, event) {
-        var subscribeToList = this._subscribeToList;
-        var i;
-
-        if (target) {
-            for (i = subscribeToList.length - 1; i >= 0; i--) {
-                var cur = subscribeToList[i];
-                if (cur._target === target) {
-                    cur.removeAllListeners(event);
-
-                    if (!cur._listeners.length) {
-                        // Do some cleanup if we removed all
-                        // listeners for the target event emitter
-                        subscribeToList.splice(i, 1);
-                    }
-
-                    break;
-                }
-            }
-        } else {
-
-            for (i = subscribeToList.length - 1; i >= 0; i--) {
-                subscribeToList[i].removeAllListeners();
-            }
-            subscribeToList.length = 0;
-        }
-    }
-};
-
-exports.wrap = function(targetEventEmitter) {
-    var wrapper = new EventEmitterWrapper(targetEventEmitter);
-    targetEventEmitter.once('destroy', function() {
-        wrapper._listeners.length = 0;
-    });
-    return wrapper;
-};
-
-exports.createTracker = function() {
-    return new SubscriptionTracker();
-};
-});
-$rmod.main("/morphdom@1.0.1", "lib/index");
-$rmod.dep("/$/marko-widgets", "morphdom", "1.0.1");
-$rmod.def("/morphdom@1.0.1/lib/index", function(require, exports, module, __filename, __dirname) { // Create a range object for efficently rendering strings to elements.
-var range;
-
-function toElement(str) {
-    if (!range) {
-        range = document.createRange();
-        range.selectNode(document.body);
-    }
-
-    var fragment;
-    if (range.createContextualFragment) {
-        fragment = range.createContextualFragment(str);
-    } else {
-        fragment = document.createElement('body');
-        fragment.innerHTML = str;
-    }
-    return fragment.childNodes[0];
-}
-
-var specialElHandlers = {
-    /**
-     * Needed for IE. Apparently IE doesn't think
-     * that "selected" is an attribute when reading
-     * over the attributes using selectEl.attributes
-     */
-    OPTION: function(fromEl, toEl) {
-        if ((fromEl.selected = toEl.selected)) {
-            fromEl.setAttribute('selected', '');
-        } else {
-            fromEl.removeAttribute('selected', '');
-        }
-    },
-    /**
-     * The "value" attribute is special for the <input> element
-     * since it sets the initial value. Changing the "value"
-     * attribute without changing the "value" property will have
-     * no effect since it is only used to the set the initial value.
-     * Similar for the "checked" attribute.
-     */
-    INPUT: function(fromEl, toEl) {
-        fromEl.checked = toEl.checked;
-        fromEl.value = toEl.value;
-
-        if (!toEl.hasAttribute('checked')) {
-            fromEl.removeAttribute('checked');
-        }
-
-        if (!toEl.hasAttribute('value')) {
-            fromEl.removeAttribute('value');
-        }
-    },
-
-    TEXTAREA: function(fromEl, toEl) {
-        var newValue = toEl.value;
-
-        fromEl.value = newValue;
-
-        if (fromEl.firstChild) {
-            fromEl.firstChild.nodeValue = newValue;
-        }
-    }
-};
-
-function noop() {}
-
-/**
- * Loop over all of the attributes on the target node and make sure the
- * original DOM node has the same attributes. If an attribute
- * found on the original node is not on the new node then remove it from
- * the original node
- * @param  {HTMLElement} fromNode
- * @param  {HTMLElement} toNode
- */
-function morphAttrs(fromNode, toNode) {
-    var attrs = toNode.attributes;
-    var i;
-    var attr;
-    var attrName;
-    var attrValue;
-    var foundAttrs = {};
-
-    for (i=attrs.length-1; i>=0; i--) {
-        attr = attrs[i];
-        if (attr.specified !== false) {
-            attrName = attr.name;
-            attrValue = attr.value;
-            foundAttrs[attrName] = true;
-
-            if (fromNode.getAttribute(attrName) !== attrValue) {
-                fromNode.setAttribute(attrName, attrValue);
-            }
-        }
-    }
-
-    // Delete any extra attributes found on the original DOM element that weren't
-    // found on the target element.
-    attrs = fromNode.attributes;
-
-    for (i=attrs.length-1; i>=0; i--) {
-        attr = attrs[i];
-        if (attr.specified !== false) {
-            attrName = attr.name;
-            if (!foundAttrs.hasOwnProperty(attrName)) {
-                fromNode.removeAttribute(attrName);
-            }
-        }
-    }
-}
-
-/**
- * Copies the children of one DOM element to another DOM element
- */
-function moveChildren(fromEl, toEl) {
-    var curChild = fromEl.firstChild;
-    while(curChild) {
-        var nextChild = curChild.nextSibling;
-        toEl.appendChild(curChild);
-        curChild = nextChild;
-    }
-    return toEl;
-}
-
-function morphdom(fromNode, toNode, options) {
-    if (!options) {
-        options = {};
-    }
-
-    if (typeof toNode === 'string') {
-        toNode = toElement(toNode);
-    }
-
-    var savedEls = {}; // Used to save off DOM elements with IDs
-    var unmatchedEls = {};
-    var onNodeDiscarded = options.onNodeDiscarded || noop;
-    var onBeforeMorphEl = options.onBeforeMorphEl || noop;
-    var onBeforeMorphElChildren = options.onBeforeMorphElChildren || noop;
-    var onBeforeNodeDiscarded = options.onBeforeNodeDiscarded || noop;
-    var childrenOnly = options.childrenOnly === true;
-
-    function removeNodeHelper(node, nestedInSavedEl) {
-        var id = node.id;
-        // If the node has an ID then save it off since we will want
-        // to reuse it in case the target DOM tree has a DOM element
-        // with the same ID
-        if (id) {
-            savedEls[id] = node;
-        } else if (!nestedInSavedEl) {
-            // If we are not nested in a saved element then we know that this node has been
-            // completely discarded and will not exist in the final DOM.
-            onNodeDiscarded(node);
-        }
-
-        if (node.nodeType === 1) {
-            var curChild = node.firstChild;
-            while(curChild) {
-                removeNodeHelper(curChild, nestedInSavedEl || id);
-                curChild = curChild.nextSibling;
-            }
-        }
-    }
-
-    function walkDiscardedChildNodes(node) {
-        if (node.nodeType === 1) {
-            var curChild = node.firstChild;
-            while(curChild) {
-
-
-                if (!curChild.id) {
-                    // We only want to handle nodes that don't have an ID to avoid double
-                    // walking the same saved element.
-
-                    onNodeDiscarded(curChild);
-
-                    // Walk recursively
-                    walkDiscardedChildNodes(curChild);
-                }
-
-                curChild = curChild.nextSibling;
-            }
-        }
-    }
-
-    function removeNode(node, parentNode, alreadyVisited) {
-        if (onBeforeNodeDiscarded(node) === false) {
-            return;
-        }
-
-        parentNode.removeChild(node);
-        if (alreadyVisited) {
-            if (!node.id) {
-                onNodeDiscarded(node);
-                walkDiscardedChildNodes(node);
-            }
-        } else {
-            removeNodeHelper(node);
-        }
-    }
-
-    function morphEl(fromEl, toEl, alreadyVisited, childrenOnly) {
-        if (toEl.id) {
-            // If an element with an ID is being morphed then it is will be in the final
-            // DOM so clear it out of the saved elements collection
-            delete savedEls[toEl.id];
-        }
-
-        if (!childrenOnly) {
-            if (onBeforeMorphEl(fromEl, toEl) === false) {
-                return;
-            }
-
-            morphAttrs(fromEl, toEl);
-
-            if (onBeforeMorphElChildren(fromEl, toEl) === false) {
-                return;
-            }
-        }
-
-        if (fromEl.tagName != 'TEXTAREA') {
-            var curToNodeChild = toEl.firstChild;
-            var curFromNodeChild = fromEl.firstChild;
-            var curToNodeId;
-
-            var fromNextSibling;
-            var toNextSibling;
-            var savedEl;
-            var unmatchedEl;
-
-            outer: while(curToNodeChild) {
-                toNextSibling = curToNodeChild.nextSibling;
-                curToNodeId = curToNodeChild.id;
-
-                while(curFromNodeChild) {
-                    var curFromNodeId = curFromNodeChild.id;
-                    fromNextSibling = curFromNodeChild.nextSibling;
-
-                    if (!alreadyVisited) {
-                        if (curFromNodeId && (unmatchedEl = unmatchedEls[curFromNodeId])) {
-                            unmatchedEl.parentNode.replaceChild(curFromNodeChild, unmatchedEl);
-                            morphEl(curFromNodeChild, unmatchedEl, alreadyVisited);
-                            curFromNodeChild = fromNextSibling;
-                            continue;
-                        }
-                    }
-
-                    var curFromNodeType = curFromNodeChild.nodeType;
-
-                    if (curFromNodeType === curToNodeChild.nodeType) {
-                        var isCompatible = false;
-
-                        if (curFromNodeType === 1) { // Both nodes being compared are Element nodes
-                            if (curFromNodeChild.tagName === curToNodeChild.tagName) {
-                                // We have compatible DOM elements
-                                if (curFromNodeId || curToNodeId) {
-                                    // If either DOM element has an ID then we handle
-                                    // those differently since we want to match up
-                                    // by ID
-                                    if (curToNodeId === curFromNodeId) {
-                                        isCompatible = true;
-                                    }
-                                } else {
-                                    isCompatible = true;
-                                }
-                            }
-
-                            if (isCompatible) {
-                                // We found compatible DOM elements so transform the current "from" node
-                                // to match the current target DOM node.
-                                morphEl(curFromNodeChild, curToNodeChild, alreadyVisited);
-                            }
-                        } else if (curFromNodeType === 3) { // Both nodes being compared are Text nodes
-                            isCompatible = true;
-                            // Simply update nodeValue on the original node to change the text value
-                            curFromNodeChild.nodeValue = curToNodeChild.nodeValue;
-                        }
-
-                        if (isCompatible) {
-                            curToNodeChild = toNextSibling;
-                            curFromNodeChild = fromNextSibling;
-                            continue outer;
-                        }
-                    }
-
-                    // No compatible match so remove the old node from the DOM and continue trying
-                    // to find a match in the original DOM
-                    removeNode(curFromNodeChild, fromEl, alreadyVisited);
-                    curFromNodeChild = fromNextSibling;
-                }
-
-                if (curToNodeId) {
-                    if ((savedEl = savedEls[curToNodeId])) {
-                        morphEl(savedEl, curToNodeChild, true);
-                        curToNodeChild = savedEl; // We want to append the saved element instead
-                    } else {
-                        // The current DOM element in the target tree has an ID
-                        // but we did not find a match in any of the corresponding
-                        // siblings. We just put the target element in the old DOM tree
-                        // but if we later find an element in the old DOM tree that has
-                        // a matching ID then we will replace the target element
-                        // with the corresponding old element and morph the old element
-                        unmatchedEls[curToNodeId] = curToNodeChild;
-                    }
-                }
-
-                // If we got this far then we did not find a candidate match for our "to node"
-                // and we exhausted all of the children "from" nodes. Therefore, we will just
-                // append the current "to node" to the end
-                fromEl.appendChild(curToNodeChild);
-
-                curToNodeChild = toNextSibling;
-                curFromNodeChild = fromNextSibling;
-            }
-
-            // We have processed all of the "to nodes". If curFromNodeChild is non-null then
-            // we still have some from nodes left over that need to be removed
-            while(curFromNodeChild) {
-                fromNextSibling = curFromNodeChild.nextSibling;
-                removeNode(curFromNodeChild, fromEl, alreadyVisited);
-                curFromNodeChild = fromNextSibling;
-            }
-        }
-
-        var specialElHandler = specialElHandlers[fromEl.tagName];
-        if (specialElHandler) {
-            specialElHandler(fromEl, toEl);
-        }
-    } // END: morphEl(...)
-
-    var morphedNode = fromNode;
-    var morphedNodeType = morphedNode.nodeType;
-    var toNodeType = toNode.nodeType;
-
-    if (!childrenOnly) {
-        // Handle the case where we are given two DOM nodes that are not
-        // compatible (e.g. <div> --> <span> or <div> --> TEXT)
-        if (morphedNodeType === 1) {
-            if (toNodeType === 1) {
-                if (fromNode.tagName !== toNode.tagName) {
-                    onNodeDiscarded(fromNode);
-                    morphedNode = moveChildren(fromNode, document.createElement(toNode.tagName));
-                }
-            } else {
-                // Going from an element node to a text node
-                morphedNode = toNode;
-            }
-        } else if (morphedNodeType === 3) { // Text node
-            if (toNodeType === 3) {
-                morphedNode.nodeValue = toNode.nodeValue;
-                return morphedNode;
-            } else {
-                // Text node to something else
-                morphedNode = toNode;
-            }
-        }
-    }
-
-    if (morphedNode === toNode) {
-        // The "to node" was not compatible with the "from node"
-        // so we had to toss out the "from node" and use the "to node"
-        onNodeDiscarded(fromNode);
-    } else {
-        morphEl(morphedNode, toNode, false, childrenOnly);
-
-        // Fire the "onNodeDiscarded" event for any saved elements
-        // that never found a new home in the morphed DOM
-        for (var savedElId in savedEls) {
-            if (savedEls.hasOwnProperty(savedElId)) {
-                var savedEl = savedEls[savedElId];
-                onNodeDiscarded(savedEl);
-                walkDiscardedChildNodes(savedEl);
-            }
-        }
-    }
-
-    if (!childrenOnly && morphedNode !== fromNode && fromNode.parentNode) {
-        // If we had to swap out the from node with a new node because the old
-        // node was not compatible with the target node then we need to
-        // replace the old DOM node in the original DOM tree. This is only
-        // possible if the original DOM node was part of a DOM tree which
-        // we know is the case if it has a parent node.
-        fromNode.parentNode.replaceChild(morphedNode, fromNode);
-    }
-
-    return morphedNode;
-}
-
-module.exports = morphdom;
-});
-$rmod.def("/marko-widgets@5.0.6/lib/Widget", function(require, exports, module, __filename, __dirname) { /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-var inherit = require('/$/marko-widgets/$/raptor-util/inherit'/*'raptor-util/inherit'*/);
-var raptorDom = require('/$/marko-widgets/$/raptor-dom'/*'raptor-dom'*/);
-var markoWidgets = require('./');
-var raptorRenderer = require('/$/marko-widgets/$/raptor-renderer'/*'raptor-renderer'*/);
-var EventEmitter = require('/$/marko-widgets/$/events'/*'events'*/).EventEmitter;
-var listenerTracker = require('/$/marko-widgets/$/listener-tracker'/*'listener-tracker'*/);
-var arrayFromArguments = require('/$/marko-widgets/$/raptor-util/arrayFromArguments'/*'raptor-util/arrayFromArguments'*/);
-var extend = require('/$/marko-widgets/$/raptor-util/extend'/*'raptor-util/extend'*/);
-var updateManager = require('./update-manager');
-var morphdom = require('/$/marko-widgets/$/morphdom'/*'morphdom'*/);
-
-var MORPHDOM_SKIP = false;
-
-var WIDGET_SUBSCRIBE_TO_OPTIONS = null;
-var NON_WIDGET_SUBSCRIBE_TO_OPTIONS = {
-    addDestroyListener: false
-};
-
-
-var emit = EventEmitter.prototype.emit;
-var idRegExp = /\#(\w+)( .*)?/;
-
-var lifecycleEventMethods = {
-    'beforeDestroy': 'onBeforeDestroy',
-    'destroy': 'onDestroy',
-    'beforeUpdate': 'onBeforeUpdate',
-    'update': 'onUpdate',
-    'render': 'onRender',
-    'beforeInit': 'onBeforeInit',
-    'afterInit': 'onAfterInit'
-};
-
-function removeListener(eventListenerHandle) {
-    eventListenerHandle.remove();
-}
-
-function destroyRecursive(el) {
-    raptorDom.forEachChildEl(el, function (childEl) {
-        var descendentWidget = childEl.__widget;
-        if (descendentWidget) {
-            destroy(descendentWidget, false, false);
-        }
-        destroyRecursive(childEl);
-    });
-}
-
-/**
- * This method handles invoking a widget's event handler method
- * (if present) while also emitting the event through
- * the standard EventEmitter.prototype.emit method.
- *
- * Special events and their corresponding handler methods
- * include the following:
- *
- * beforeDestroy --> onBeforeDestroy
- * destroy       --> onDestroy
- * beforeUpdate  --> onBeforeUpdate
- * update        --> onUpdate
- * render        --> onRender
- */
-function emitLifecycleEvent(widget, eventType, eventArg) {
-    var listenerMethod = widget[lifecycleEventMethods[eventType]];
-
-    if (listenerMethod) {
-        listenerMethod.call(widget, eventArg);
-    }
-
-    widget.emit(eventType, eventArg);
-}
-
-function removeDOMEventListeners(widget) {
-    var eventListenerHandles = widget.__evHandles;
-    if (eventListenerHandles) {
-        eventListenerHandles.forEach(removeListener);
-        widget.__evHandles = null;
-    }
-}
-
-function destroy(widget, removeNode, recursive) {
-    if (widget.isDestroyed()) {
-        return;
-    }
-
-    var rootEl = widget.getEl();
-
-    emitLifecycleEvent(widget, 'beforeDestroy');
-    widget.__lifecycleState = 'destroyed';
-
-    if (rootEl) {
-        if (recursive) {
-            destroyRecursive(rootEl);
-        }
-
-        if (removeNode && rootEl.parentNode) {
-            //Remove the widget's DOM nodes from the DOM tree if the root element is known
-            rootEl.parentNode.removeChild(rootEl);
-        }
-
-        rootEl.__widget = null;
-    }
-
-    // Unsubscribe from all DOM events
-    removeDOMEventListeners(widget);
-
-    if (widget.__subscriptions) {
-        widget.__subscriptions.removeAllListeners();
-        widget.__subscriptions = null;
-    }
-
-    emitLifecycleEvent(widget, 'destroy');
-}
-
-function setState(widget, name, value, forceDirty, noQueue) {
-    if (typeof value === 'function') {
-        return;
-    }
-
-    if (value === null) {
-        // Treat null as undefined to simplify our comparison logic
-        value = undefined;
-    }
-
-    if (forceDirty) {
-        var dirtyState = widget.__dirtyState || (widget.__dirtyState = {});
-        dirtyState[name] = true;
-    } else if (widget.state[name] === value) {
-        return;
-    }
-
-    var clean = !widget.__dirty;
-
-    if (clean) {
-        // This is the first time we are modifying the widget state
-        // so introduce some properties to do some tracking of
-        // changes to the state
-        var currentState = widget.state;
-        widget.__dirty = true; // Mark the widget state as dirty (i.e. modified)
-        widget.__oldState = currentState;
-        widget.state = extend({}, currentState);
-        widget.__stateChanges = {};
-    }
-
-    widget.__stateChanges[name] = value;
-
-    if (value == null) {
-        // Don't store state properties with an undefined or null value
-        delete widget.state[name];
-    } else {
-        // Otherwise, store the new value in the widget state
-        widget.state[name] = value;
-    }
-
-    if (clean && noQueue !== true) {
-        // If we were clean before then we are now dirty so queue
-        // up the widget for update
-        updateManager.queueWidgetUpdate(widget);
-    }
-}
-
-function replaceState(widget, newState, noQueue) {
-    var k;
-
-    for (k in widget.state) {
-        if (widget.state.hasOwnProperty(k) && !newState.hasOwnProperty(k)) {
-            setState(widget, k, undefined, false, noQueue);
-        }
-    }
-
-    for (k in newState) {
-        if (newState.hasOwnProperty(k)) {
-            setState(widget, k, newState[k], false, noQueue);
-        }
-    }
-}
-
-function resetWidget(widget) {
-    widget.__oldState = null;
-    widget.__dirty = false;
-    widget.__stateChanges = null;
-    widget.__newProps = null;
-    widget.__dirtyState = null;
-}
-
-function hasCompatibleWidget(widgetsContext, existingWidget) {
-    var id = existingWidget.id;
-    var newWidgetDef = widgetsContext.getWidget(id);
-    if (!newWidgetDef) {
-        return false;
-    }
-
-    return existingWidget.__type === newWidgetDef.type;
-}
-
-var widgetProto;
-
-/**
- * Base widget type.
- *
- * NOTE: Any methods that are prefixed with an underscore should be considered private!
- */
-function Widget(id) {
-    EventEmitter.call(this);
-    this.id = id;
-    this.el = null;
-    this.bodyEl = null;
-    this.state = null;
-    this.__subscriptions = null;
-    this.__evHandles = null;
-    this.__lifecycleState = null;
-    this.__customEvents = null;
-    this.__scope = null;
-    this.__dirty = false;
-    this.__oldState = null;
-    this.__stateChanges = null;
-    this.__updateQueued = false;
-    this.__dirtyState = null;
-}
-
-Widget.prototype = widgetProto = {
-    _isWidget: true,
-
-    subscribeTo: function(target) {
-        if (!target) {
-            throw new Error('target is required');
-        }
-
-        var tracker = this.__subscriptions;
-        if (!tracker) {
-            this.__subscriptions = tracker = listenerTracker.createTracker();
-        }
-
-
-        var subscribeToOptions = target._isWidget ?
-            WIDGET_SUBSCRIBE_TO_OPTIONS :
-            NON_WIDGET_SUBSCRIBE_TO_OPTIONS;
-
-        return tracker.subscribeTo(target, subscribeToOptions);
-    },
-
-    emit: function(eventType) {
-        var customEvents = this.__customEvents;
-        var targetMethodName;
-        var args;
-
-        if (customEvents && (targetMethodName = customEvents[eventType])) {
-            args = args || arrayFromArguments(arguments, 1);
-            args.push(this);
-
-            var targetWidget = markoWidgets.getWidgetForEl(this.__scope);
-            var targetMethod = targetWidget[targetMethodName];
-            if (!targetMethod) {
-                throw new Error('Method not found for widget ' + targetWidget.id + ': ' + targetMethodName);
-            }
-
-            targetMethod.apply(targetWidget, args);
-        }
-
-        return emit.apply(this, arguments);
-    },
-    getElId: function (widgetElId, index) {
-        var elId = widgetElId != null ? this.id + '-' + widgetElId : this.id;
-
-        if (index != null) {
-            elId += '[' + index + ']';
-        }
-
-        return elId;
-    },
-    getEl: function (widgetElId, index) {
-        if (widgetElId != null) {
-            return document.getElementById(this.getElId(widgetElId, index));
-        } else {
-            return this.el || document.getElementById(this.getElId());
-        }
-    },
-    getEls: function(id) {
-        var els = [];
-        var i=0;
-        while(true) {
-            var el = this.getEl(id, i);
-            if (!el) {
-                break;
-            }
-            els.push(el);
-            i++;
-        }
-        return els;
-    },
-    getWidget: function(id, index) {
-        var targetWidgetId = this.getElId(id, index);
-        return markoWidgets.getWidgetForEl(targetWidgetId);
-    },
-    getWidgets: function(id) {
-        var widgets = [];
-        var i=0;
-        while(true) {
-            var widget = this.getWidget(id, i);
-            if (!widget) {
-                break;
-            }
-            widgets.push(widget);
-            i++;
-        }
-        return widgets;
-    },
-    destroy: function (options) {
-        options = options || {};
-        destroy(this, options.removeNode !== false, options.recursive !== false);
-    },
-    isDestroyed: function () {
-        return this.__lifecycleState === 'destroyed';
-    },
-    getBodyEl: function() {
-        return this.bodyEl;
-    },
-    setState: function(name, value) {
-        if (typeof name === 'object') {
-            // Merge in the new state with the old state
-            var newState = name;
-            for (var k in newState) {
-                if (newState.hasOwnProperty(k)) {
-                    setState(this, k, newState[k]);
-                }
-            }
-            return;
-        }
-
-        setState(this, name, value);
-    },
-
-    setStateDirty: function(name, value) {
-        if (arguments.length === 1) {
-            value = this.state[name];
-        }
-
-        setState(this, name, value, true /* forceDirty */);
-    },
-
-    _replaceState: function(newState) {
-        replaceState(this, newState, true /* do not queue an update */ );
-    },
-
-    _removeDOMEventListeners: function() {
-        removeDOMEventListeners(this);
-    },
-
-    replaceState: function(newState) {
-        replaceState(this, newState);
-    },
-
-    /**
-     * Recalculate the new state from the given props using the widget's
-     * getInitialState(props) method. If the widget does not have a
-     * getInitialState(props) then it is re-rendered with the new props
-     * as input.
-     *
-     * @param {Object} props The widget's new props
-     */
-    setProps: function(newProps) {
-        if (this.getInitialState) {
-            if (this.getInitialProps) {
-                newProps = this.getInitialProps(newProps) || {};
-            }
-            var newState = this.getInitialState(newProps);
-            this.replaceState(newState);
-            return;
-        }
-
-        if (!this.__newProps) {
-            updateManager.queueWidgetUpdate(this);
-        }
-
-        this.__newProps = newProps;
-    },
-
-    update: function() {
-        var newProps = this.__newProps;
-
-        if (!this.shouldUpdate(newProps, this.state)) {
-            resetWidget(this);
-            return;
-        }
-
-        if (newProps) {
-            resetWidget(this);
-            this.rerender(newProps);
-            return;
-        }
-
-        if (!this.__dirty) {
-            // Don't even bother trying to update this widget since it is
-            // not marked as dirty.
-            return;
-        }
-
-        if (!this._processUpdateHandlers()) {
-            this.doUpdate(this.__stateChanges, this.__oldState);
-        }
-
-        // Reset all internal properties for tracking state changes, etc.
-        resetWidget(this);
-    },
-
-    isDirty: function() {
-        return this.__dirty;
-    },
-
-    _reset: function() {
-        resetWidget(this);
-    },
-
-    /**
-     * This method is used to process "update_<stateName>" handler functions.
-     * If all of the modified state properties have a user provided update handler
-     * then a rerender will be bypassed and, instead, the DOM will be updated
-     * looping over and invoking the custom update handlers.
-     * @return {boolean} Returns true if if the DOM was updated. False, otherwise.
-     */
-    _processUpdateHandlers: function() {
-        var stateChanges = this.__stateChanges;
-        var oldState = this.__oldState;
-
-        var handlerMethod;
-        var handlers = [];
-
-        var newValue;
-        var oldValue;
-
-        for (var propName in stateChanges) {
-            if (stateChanges.hasOwnProperty(propName)) {
-                newValue = stateChanges[propName];
-                oldValue = oldState[propName];
-
-                if (oldValue === newValue) {
-                    // Only do an update for this state property if it is actually
-                    // different from the old state or if it was forced to be dirty
-                    // using setStateDirty(propName)
-                    var dirtyState = this.__dirtyState;
-                    if (dirtyState == null || !dirtyState.hasOwnProperty(propName)) {
-                        continue;
-                    }
-                }
-
-                var handlerMethodName = 'update_' + propName;
-
-                handlerMethod = this[handlerMethodName];
-                if (handlerMethod) {
-                    handlers.push([propName, handlerMethod]);
-                } else {
-                    // This state change does not have a state handler so return false
-                    // to force a rerender
-                    return false;
-                }
-            }
-        }
-
-        // If we got here then all of the changed state properties have
-        // an update handler or there are no state properties that actually
-        // changed.
-
-        if (!handlers.length) {
-            return true;
-        }
-
-        // Otherwise, there are handlers for all of the changed properties
-        // so apply the updates using those handlers
-
-        emitLifecycleEvent(this, 'beforeUpdate');
-
-        for (var i=0, len=handlers.length; i<len; i++) {
-            var handler = handlers[i];
-            var propertyName = handler[0];
-            handlerMethod = handler[1];
-
-            newValue = stateChanges[propertyName];
-            oldValue = oldState[propertyName];
-            handlerMethod.call(this, newValue, oldValue);
-        }
-
-        emitLifecycleEvent(this, 'update');
-
-        resetWidget(this);
-
-        return true;
-    },
-
-    shouldUpdate: function(newState, newProps) {
-        return true;
-    },
-
-    doUpdate: function (stateChanges, oldState) {
-        this.rerender();
-    },
-
-    _emitLifecycleEvent: function(eventType, eventArg) {
-        emitLifecycleEvent(this, eventType, eventArg);
-    },
-
-    rerender: function(props) {
-        var self = this;
-
-        if (!self.renderer) {
-            throw new Error('Widget does not have a "renderer" property');
-        }
-
-        var elToReplace = document.getElementById(self.id);
-
-        var renderer = self.renderer || self;
-        self.__lifecycleState = 'rerender';
-
-        var templateData = extend({}, props || self.state);
-
-        var global = templateData.$global = {};
-
-        global.__rerenderWidget = self;
-        global.__rerenderEl = self.el;
-        global.__rerender = true;
-
-        if (!props) {
-            global.__rerenderState = props ? null : self.state;
-        }
-
-        updateManager.batchUpdate(function() {
-            var renderResult = raptorRenderer
-                .render(renderer, templateData);
-
-            var newNode = renderResult.getNode();
-
-            var out = renderResult.out;
-            var widgetsContext = out.global.widgets;
-
-            function onNodeDiscarded(node) {
-                var widget = node.__widget;
-                if (widget) {
-                    destroy(widget, false, false);
-                }
-            }
-
-            function onBeforeMorphEl(fromEl, toEl) {
-                var id = fromEl.id;
-                var existingWidget;
-
-                if (widgetsContext && id) {
-                    if (widgetsContext.isPreservedEl(id)) {
-
-                        if (widgetsContext.hasUnpreservedBody(id)) {
-                            existingWidget = fromEl.__widget;
-
-                            morphdom(existingWidget.bodyEl, toEl, {
-                                childrenOnly: true,
-                                onNodeDiscarded: onNodeDiscarded,
-                                onBeforeMorphEl: onBeforeMorphEl,
-                                onBeforeMorphElChildren: onBeforeMorphElChildren
-                            });
-                        }
-
-                        // Don't morph elements that are associated with widgets that are being
-                        // reused or elements that are being preserved. For widgets being reused,
-                        // the morphing will take place when the reused widget updates.
-                        return MORPHDOM_SKIP;
-                    } else {
-                        existingWidget = fromEl.__widget;
-                        if (existingWidget && !hasCompatibleWidget(widgetsContext, existingWidget)) {
-                            // We found a widget in an old DOM node that does not have
-                            // a compatible widget that was rendered so we need to
-                            // destroy the old widget
-                            destroy(existingWidget, false, false);
-                        }
-                    }
-                }
-            }
-
-            function onBeforeMorphElChildren(el) {
-                if (widgetsContext && el.id) {
-                    if (widgetsContext.isPreservedBodyEl(el.id)) {
-                        // Don't morph the children since they are preserved
-                        return MORPHDOM_SKIP;
-                    }
-                }
-            }
-
-            morphdom(elToReplace, newNode, {
-                onNodeDiscarded: onNodeDiscarded,
-                onBeforeMorphEl: onBeforeMorphEl,
-                onBeforeMorphElChildren: onBeforeMorphElChildren
-            });
-
-            // Trigger any 'onUpdate' events for all of the rendered widgets
-            renderResult.afterInsert();
-
-            self.__lifecycleState = null;
-
-            if (!props) {
-                // We have re-rendered with the new state so our state
-                // is no longer dirty. Before updating a widget
-                // we check if a widget is dirty. If a widget is not
-                // dirty then we abort the update. Therefore, if the
-                // widget was queued for update and the re-rendered
-                // before the update occurred then nothing will happen
-                // at the time of the update.
-                resetWidget(self);
-            }
-        });
-    },
-
-    detach: function () {
-        raptorDom.detach(this.el);
-
-    },
-    appendTo: function (targetEl) {
-        raptorDom.appendTo(this.el, targetEl);
-    },
-    replace: function (targetEl) {
-        raptorDom.replace(this.el, targetEl);
-    },
-    replaceChildrenOf: function (targetEl) {
-        raptorDom.replaceChildrenOf(this.el, targetEl);
-    },
-    insertBefore: function (targetEl) {
-        raptorDom.insertBefore(this.el, targetEl);
-    },
-    insertAfter: function (targetEl) {
-        raptorDom.insertAfter(this.el, targetEl);
-    },
-    prependTo: function (targetEl) {
-        raptorDom.prependTo(this.el, targetEl);
-    },
-    ready: function (callback) {
-        markoWidgets.ready(callback, this);
-    },
-    $: function (arg) {
-        var jquery = markoWidgets.$;
-
-        var args = arguments;
-        if (args.length === 1) {
-            //Handle an "ondomready" callback function
-            if (typeof arg === 'function') {
-                var _this = this;
-                _this.ready(function() {
-                    arg.call(_this);
-                });
-            } else if (typeof arg === 'string') {
-                var match = idRegExp.exec(arg);
-                //Reset the search to 0 so the next call to exec will start from the beginning for the new string
-                if (match != null) {
-                    var widgetElId = match[1];
-                    if (match[2] == null) {
-                        return jquery(this.getEl(widgetElId));
-                    } else {
-                        return jquery('#' + this.getElId(widgetElId) + match[2]);
-                    }
-                } else {
-                    var rootEl = this.getEl();
-                    if (!rootEl) {
-                        throw new Error('Root element is not defined for widget');
-                    }
-                    if (rootEl) {
-                        return jquery(arg, rootEl);
-                    }
-                }
-            }
-        } else if (args.length === 2 && typeof args[1] === 'string') {
-            return jquery(arg, this.getEl(args[1]));
-        } else if (args.length === 0) {
-            return jquery(this.el);
-        }
-        return jquery.apply(window, arguments);
-    }
-};
-
-widgetProto.elId = widgetProto.getElId;
-
-inherit(Widget, EventEmitter);
-
-module.exports = Widget;
-
-});
-$rmod.remap("/marko-widgets@5.0.6/lib/init-widgets", "init-widgets-browser");
-$rmod.def("/raptor-polyfill@1.0.2/array/_toObject", function(require, exports, module, __filename, __dirname) { var prepareString = "a"[0] != "a";
-
-// ES5 9.9
-// http://es5.github.com/#x9.9
-module.exports = function (o) {
-    if (o == null) { // this matches both null and undefined
-        throw new TypeError("can't convert "+o+" to object");
-    }
-    // If the implementation doesn't support by-index access of
-    // string characters (ex. IE < 9), split the string
-    if (prepareString && typeof o == "string" && o) {
-        return o.split("");
-    }
-    return Object(o);
-};
-});
-$rmod.dep("/$/marko-widgets", "raptor-polyfill", "1.0.2");
-$rmod.def("/raptor-polyfill@1.0.2/array/forEach", function(require, exports, module, __filename, __dirname) { // ES5 15.4.4.18
-// http://es5.github.com/#x15.4.4.18
-// https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/array/forEach
-
-if (!Array.prototype.forEach) {
-    var toObject = require('./_toObject');
-
-    Array.prototype.forEach = function forEach(func, thisObj) {
-        var self = toObject(this);
-        var i = -1;
-        var length = self.length >>> 0;
-
-        // If no callback function or if callback is not a callable function
-        if (typeof func !== 'function') {
-            throw new TypeError();
-        }
-
-        while (++i < length) {
-            if (i in self) {
-                // Invoke the callback function with call, passing arguments:
-                // context, property value, property key, thisArg object context
-                func.call(thisObj, self[i], i, self);
-            }
-        }
-    };
-}
-});
-$rmod.def("/raptor-polyfill@1.0.2/string/endsWith", function(require, exports, module, __filename, __dirname) { if (!String.prototype.endsWith) {
-    String.prototype.endsWith = function(suffix, position) {
-        var str = this;
-        
-        if (position) {
-            str = str.substring(position);
-        }
-        
-        if (str.length < suffix.length) {
-            return false;
-        }
-        
-        return str.slice(0 - suffix.length) == suffix;
-    };
-}
-});
-$rmod.dep("/$/marko-widgets", "raptor-logging", "1.0.6");
-$rmod.def("/marko-widgets@5.0.6/lib/init-widgets-browser", function(require, exports, module, __filename, __dirname) { /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-require('/$/marko-widgets/$/raptor-polyfill/array/forEach'/*'raptor-polyfill/array/forEach'*/);
-require('/$/marko-widgets/$/raptor-polyfill/string/endsWith'/*'raptor-polyfill/string/endsWith'*/);
-
-var logger = require('/$/marko-widgets/$/raptor-logging'/*'raptor-logging'*/).logger(module);
-var raptorPubsub = require('/$/marko-widgets/$/raptor-pubsub'/*'raptor-pubsub'*/);
-var ready = require('/$/marko-widgets/$/raptor-dom'/*'raptor-dom'*/).ready;
-var _addEventListener = require('./addEventListener');
-var registry = require('./registry');
-
-function invokeWidgetEventHandler(widget, targetMethodName, args) {
-    var method = widget[targetMethodName];
-    if (!method) {
-        throw new Error('Widget ' + widget.id + ' does not have method named "' + targetMethodName + '"');
-    }
-
-    method.apply(widget, args);
-}
-
-function addDOMEventListener(widget, el, eventType, targetMethodName) {
-    return _addEventListener(el, eventType, function(event) {
-        invokeWidgetEventHandler(widget, targetMethodName, [event, el]);
-    });
-}
-
-function parseJSON(config) {
-    return eval('(' + config + ')');
-}
-
-function getNestedEl(widget, nestedId) {
-    if (nestedId == null) {
-        return null;
-
-    }
-    if (nestedId === '') {
-        return widget.getEl();
-    }
-
-    if (typeof nestedId === 'string' && nestedId.charAt(0) === '#') {
-        return document.getElementById(nestedId.substring(1));
-    } else {
-        return widget.getEl(nestedId);
-    }
-}
-
-function initWidget(
-    type,
-    id,
-    config,
-    state,
-    scope,
-    domEvents,
-    customEvents,
-    extendList,
-    bodyElId,
-    existingWidget,
-    el) {
-
-    var i;
-    var len;
-    var eventType;
-    var targetMethodName;
-    var widget;
-
-    if (!el) {
-        el = document.getElementById(id);
-    }
-
-    if (!existingWidget) {
-        existingWidget = el.__widget;
-    }
-
-    if (existingWidget && existingWidget.__type !== type) {
-        existingWidget = null;
-    }
-
-    if (existingWidget) {
-        existingWidget._removeDOMEventListeners();
-        existingWidget._reset();
-        widget = existingWidget;
-    } else {
-        widget = registry.createWidget(type, id);
-    }
-
-    if (state) {
-        for (var k in state) {
-            if (state.hasOwnProperty(k)) {
-                var v = state[k];
-                if (typeof v === 'function' || v == null) {
-                    delete state[k];
-                }
-            }
-        }
-    }
-
-    widget.state = state || {}; // First time rendering so use the provided state or an empty state object
-
-    // The user-provided constructor function
-    if (logger.isDebugEnabled()) {
-        logger.debug('Creating widget: ' + type + ' (' + id + ')');
-    }
-
-    if (!config) {
-        config = {};
-    }
-
-    el.__widget = widget;
-
-    if (widget._isWidget) {
-        widget.el = el;
-        widget.bodyEl = getNestedEl(widget, bodyElId);
-
-        if (domEvents) {
-            var eventListenerHandles = [];
-
-            for (i=0, len=domEvents.length; i<len; i+=3) {
-                eventType = domEvents[i];
-                targetMethodName = domEvents[i+1];
-                var eventElId = domEvents[i+2];
-                var eventEl = getNestedEl(widget, eventElId);
-
-                // The event mapping is for a DOM event (not a custom event)
-                var eventListenerHandle = addDOMEventListener(widget, eventEl, eventType, targetMethodName);
-                eventListenerHandles.push(eventListenerHandle);
-            }
-
-            if (eventListenerHandles.length) {
-                widget.__evHandles = eventListenerHandles;
-            }
-        }
-
-        if (customEvents) {
-            widget.__customEvents = {};
-            widget.__scope = scope;
-
-            for (i=0, len=customEvents.length; i<len; i+=2) {
-                eventType = customEvents[i];
-                targetMethodName = customEvents[i+1];
-                widget.__customEvents[eventType] = targetMethodName;
-            }
-        }
-
-        if (extendList) {
-            // If one or more "w-extend" attributes were used for this
-            // widget then call those modules to now extend the widget
-            // that we created
-            for (i=0, len=extendList.length; i<len; i++) {
-                var extendPath = extendList[i];
-
-                if (!existingWidget) {
-                    // Only extend a widget the first time the widget is created. If we are updating
-                    // an existing widget then we don't re-extend it
-                    var extendModule = registry.load(extendPath);
-                    var extendFunc = extendModule.extendWidget || extendModule.extend;
-
-                    if (typeof extendFunc !== 'function') {
-                        throw new Error('extendWidget(widget, cfg) method missing: ' + extendPath);
-                    }
-
-                    extendFunc(widget);
-                }
-            }
-        }
-    } else {
-        config.elId = id;
-        config.el = el;
-    }
-
-    if (existingWidget) {
-        widget._emitLifecycleEvent('update');
-        widget._emitLifecycleEvent('render', {});
-    } else {
-        var initEventArgs = {
-            widget: widget,
-            config: config
-        };
-
-        raptorPubsub.emit('marko-widgets/initWidget', initEventArgs);
-
-        widget._emitLifecycleEvent('beforeInit', initEventArgs);
-        widget.initWidget(config);
-        widget._emitLifecycleEvent('afterInit', initEventArgs);
-
-        widget._emitLifecycleEvent('render', { firstRender: true });
-    }
-
-    return widget;
-}
-
-function initWidgetFromEl(el) {
-    if (el.__widget != null) {
-        // A widget is already bound to this element. Nothing to do...
-        return;
-    }
-
-    var scope;
-    var id = el.id;
-    var type = el.getAttribute('data-widget');
-    el.removeAttribute('data-widget');
-
-    var config = el.getAttribute('data-w-config');
-    if (config) {
-        config = parseJSON(config);
-        el.removeAttribute('data-w-config');
-    }
-
-    var state = el.getAttribute('data-w-state');
-    if (state) {
-        state = parseJSON(state);
-        el.removeAttribute('data-w-state');
-    }
-
-    var domEvents;
-    var hasDomEvents = el.getAttribute('data-w-on');
-    if (hasDomEvents) {
-        var domEventsEl = document.getElementById(id + '-$on');
-        if (domEventsEl) {
-            domEventsEl.parentNode.removeChild(domEventsEl);
-            domEvents = (domEventsEl.getAttribute('data-on') || '').split(',');
-        }
-
-        el.removeAttribute('data-w-on');
-    }
-
-    var customEvents = el.getAttribute('data-w-events');
-    if (customEvents) {
-        customEvents = customEvents.split(',');
-        scope = customEvents[0];
-        customEvents = customEvents.slice(1);
-        el.removeAttribute('data-w-events');
-    }
-
-    var extendList = el.getAttribute('data-w-extend');
-    if (extendList) {
-        extendList = extendList.split(',');
-        el.removeAttribute('data-w-extend');
-    }
-
-    var bodyElId = el.getAttribute('data-w-body');
-
-    initWidget(
-        type,
-        id,
-        config,
-        state,
-        scope,
-        domEvents,
-        customEvents,
-        extendList,
-        bodyElId,
-        null,
-        el);
-}
-
-
-// Create a helper function handle recursion
-function initClientRendered(widgetDefs) {
-    for (var i=0,len=widgetDefs.length; i<len; i++) {
-        var widgetDef = widgetDefs[i];
-
-        if (widgetDef.children.length) {
-            initClientRendered(widgetDef.children);
-        }
-
-        var widget = initWidget(
-            widgetDef.type,
-            widgetDef.id,
-            widgetDef.config,
-            widgetDef.state,
-            widgetDef.scope,
-            widgetDef.domEvents,
-            widgetDef.customEvents,
-            widgetDef.extend,
-            widgetDef.bodyElId,
-            widgetDef.existingWidget);
-
-        widgetDef.widget = widget;
-    }
-}
-
-/**
- * This method is used to initialized widgets associated with UI components
- * rendered in the browser. While rendering UI components a "widgets context"
- * is added to the rendering context to keep up with which widgets are rendered.
- * When ready, the widgets can then be initialized by walking the widget tree
- * in the widgets context (nested widgets are initialized before ancestor widgets).
- * @param  {Array<marko-widgets/lib/WidgetDef>} widgetDefs An array of WidgetDef instances
- */
-exports.initClientRendered = initClientRendered;
-
-/**
- * This method initializes all widgets that were rendered on the server.
- * Widgets rendered on the server are not initialized until the "document ready"
- * event is fired. Nested widgets are initialized before their parents.
- */
-exports.initServerRendered = function(dataIds) {
-    function doInit() {
-        if (typeof dataIds !== 'string') {
-            var idsEl = document.getElementById('markoWidgets');
-            if (!idsEl) { // If there is no index then do nothing
-                return;
-            }
-
-            // Make sure widgets are only initialized once by checking a flag
-            if (document.markoWidgetsInitialized === true) {
-                return;
-            }
-
-            // Set flag to avoid trying to do this multiple times
-            document.markoWidgetsInitialized = true;
-
-            dataIds = idsEl ? idsEl.getAttribute('data-ids') : null;
-        }
-
-        if (dataIds) {
-            // W have a comma-separated of widget element IDs that need to be initialized
-            var ids = dataIds.split(',');
-            var len = ids.length;
-            for (var i=0; i<len; i++) {
-                var id = ids[i];
-                var el = document.getElementById(id);
-                if (!el) {
-                    logger.error('DOM node for widget with ID "' + id + '" not found');
-                    continue;
-                }
-                initWidgetFromEl(el);
-            }
-        }
-    }
-
-    if (typeof dataIds === 'string') {
-        doInit();
-    } else {
-        ready(doInit);
-    }
-};
-});
-$rmod.def("/marko-widgets@5.0.6/lib/addEventListener", function(require, exports, module, __filename, __dirname) { /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/**
- * This module provides a cross-browser solution for adding event listeners
- * to DOM elements. This code is used to handle the differences between
- * IE and standards browsers. Older IE browsers use "attachEvent" while
- * newer browsers using "addEventListener".
- */
-var testEl = document.body || document.createElement('div');
-
-function IEListenerHandle(el, eventType, listener) {
-    this._info = [el, eventType, listener];
-}
-
-IEListenerHandle.prototype = {
-    remove: function() {
-        var info = this._info;
-        var el = info[0];
-        var eventType = info[1];
-        var listener = info[2];
-        el.detachEvent(eventType, listener);
-    }
-};
-
-
-function ListenerHandle(el, eventType, listener) {
-    this._info = [el, eventType, listener];
-}
-
-ListenerHandle.prototype = {
-    remove: function() {
-        var info = this._info;
-        var el = info[0];
-        var eventType = info[1];
-        var listener = info[2];
-        el.removeEventListener(eventType, listener);
-    }
-};
-
-/**
- * Adapt an native IE event to a new event by monkey patching it
- */
-function getIEEvent() {
-    var event = window.event;
-    // add event.target
-    event.target = event.target || event.srcElement;
-
-    event.preventDefault = event.preventDefault || function() {
-        event.returnValue = false;
-    };
-
-    event.stopPropagation = event.stopPropagation || function() {
-        event.cancelBubble = true;
-    };
-
-	event.key = (event.which + 1 || event.keyCode + 1) - 1 || 0;
-
-    return event;
-}
-
-if (testEl.attachEvent) {
-    // IE...
-    module.exports = function(el, eventType, listener) {
-        function wrappedListener() {
-            var event = getIEEvent();
-            listener(event);
-        }
-
-        eventType = 'on' + eventType;
-
-        el.attachEvent(eventType, wrappedListener);
-        return new IEListenerHandle(el, eventType, wrappedListener);
-    };
-} else {
-    // Non-IE...
-    module.exports = function(el, eventType, listener) {
-        el.addEventListener(eventType, listener, false);
-        return new ListenerHandle(el, eventType, listener);
-    };
-}
-
-});
-$rmod.main("/raptor-renderer@1.4.3", "lib/raptor-renderer");
-$rmod.dep("/$/marko-widgets", "raptor-renderer", "1.4.3");
-$rmod.main("/async-writer@1.4.0", "lib/async-writer");
-$rmod.dep("/$/marko-widgets/$/raptor-renderer", "async-writer", "1.4.0");
-$rmod.def("/async-writer@1.4.0/lib/AsyncWriter", function(require, exports, module, __filename, __dirname) { var process=require("process"); /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-'use strict';
-
-function StringWriter(events) {
-    this.str = '';
-    this.events = events;
-    this.finished = false;
-}
-
-StringWriter.prototype = {
-    end: function() {
-        this.finished = true;
-        if (this.events) {
-            this.events.emit('finish');
-        }
-    },
-
-    write: function(str) {
-        this.str += str;
-        return this;
-    },
-
-    /**
-     * Converts the string buffer into a String.
-     *
-     * @returns {String} The built String
-     */
-    toString: function() {
-        return this.str;
-    }
-};
-
-/**
- * Simple wrapper that can be used to wrap a stream
- * to reduce the number of write calls. In Node.js world,
- * each stream.write() becomes a chunk. We can avoid overhead
- * by reducing the number of chunks by buffering the output.
- */
-function BufferedWriter(wrappedStream) {
-    this._buffer = '';
-    this._wrapped = wrappedStream;
-}
-
-BufferedWriter.prototype = {
-    write: function(str) {
-        this._buffer += str;
-    },
-
-    flush: function() {
-        if (this._buffer.length !== 0) {
-            this._wrapped.write(this._buffer);
-            this._buffer = '';
-            if (this._wrapped.flush) {
-                this._wrapped.flush();
-            }
-        }
-    },
-
-    end: function() {
-        this.flush();
-        if(!this._wrapped.isTTY) {
-            this._wrapped.end();
-        }
-    },
-    on: function(event, callback) {
-        return this._wrapped.on(event, callback);
-    },
-    once: function(event, callback) {
-        return this._wrapped.once(event, callback);
-    }
-};
-
-var EventEmitter = require('/$/marko-widgets/$/events'/*'events'*/).EventEmitter;
-
-var includeStack = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
-
-var voidWriter = {
-    write: function() {}
-};
-
-function Fragment(asyncWriter) {
-    this.asyncWriter = asyncWriter;
-    // The asyncWriter that this async fragment is associated with
-    this.writer = asyncWriter.writer;
-    // The original writer this fragment was associated with
-    this.finished = false;
-    // Used to keep track if this async fragment was ended
-    this.flushed = false;
-    // Set to true when the contents of this async fragment have been
-    // flushed to the original writer
-    this.next = null;
-    // A link to the next sibling async fragment (if any)
-    this.ready = true;    // Will be set to true if this fragment is ready to be flushed
-                          // (i.e. when there are no async fragments preceeding this fragment)
-}
-function flushNext(fragment, writer) {
-    var next = fragment.next;
-    if (next) {
-        next.ready = true;
-        // Since we have flushed the next fragment is ready
-        next.writer = next.asyncWriter.writer = writer;
-        // Update the next fragment to use the original writer
-        next.flush();    // Now flush the next fragment (if it is not finish then it will just do nothing)
-    }
-}
-function BufferedFragment(asyncWriter, buffer) {
-    Fragment.call(this, asyncWriter);
-    this.buffer = buffer;
-}
-BufferedFragment.prototype = {
-    flush: function () {
-        var writer = this.writer;
-        var bufferedString = this.buffer.toString();
-
-        if (bufferedString.length !== 0) {
-            writer.write(bufferedString);
-        }
-
-        this.flushed = true;
-        flushNext(this, writer);
-    }
-};
-
-function AsyncFragment(asyncWriter) {
-    Fragment.call(this, asyncWriter);
-}
-
-AsyncFragment.prototype = {
-    end: function () {
-        if (!this.finished) {
-            // Make sure end is only called once by the user
-            this.finished = true;
-
-            if (this.ready) {
-                // There are no nested asynchronous fragments that are
-                // remaining and we are ready to be flushed then let's do it!
-                this.flush();
-            }
-        }
-    },
-    flush: function () {
-        if (!this.finished) {
-            // Skipped Flushing since not finished
-            return;
-        }
-        this.flushed = true;
-        var writer = this.writer;
-        this.writer = this.asyncWriter.writer = voidWriter; // Prevent additional out-of-order writes
-        flushNext(this, writer);
-    }
-};
-
-function AsyncWriter(writer, global, async, buffer) {
-    this.data = {};
-    this.global = this.attributes /* legacy */ = (global || (global = {}));
-    this._af = this._prevAF = this._parentAF = null;
-    this._isSync = false;
-    this._last = null;
-
-    if (!global.events) {
-        // Use the underlying stream as the event emitter if available.
-        // Otherwise, create a new event emitter
-        global.events = writer && writer.on ? writer : new EventEmitter();
-    }
-
-    this._events = global.events;
-
-    if (async) {
-        this._async = async;
-    } else {
-        this._async = global.async || (global.async = {
-            remaining: 0,
-            ended: false,
-            last: 0,
-            finished: false
-        });
-    }
-
-    var stream;
-
-    if (!writer) {
-        writer = new StringWriter(this._events);
-    } else if (buffer) {
-        stream = writer;
-        writer = new BufferedWriter(writer);
-    }
-
-    this.stream = stream || writer;
-    this.writer = this._stream = writer;
-}
-
-AsyncWriter.DEFAULT_TIMEOUT = 10000;
-
-AsyncWriter.prototype = {
-    constructor: AsyncWriter,
-
-    isAsyncWriter: AsyncWriter,
-
-    sync: function() {
-        this._isSync = true;
-    },
-    getAttributes: function () {
-        return this.global;
-    },
-    getAttribute: function (name) {
-        return this.global[name];
-    },
-    write: function (str) {
-        if (str != null) {
-            this.writer.write(str.toString());
-        }
-        return this;
-    },
-    getOutput: function () {
-        return this.writer.toString();
-    },
-    captureString: function (func, thisObj) {
-        var sb = new StringWriter();
-        this.swapWriter(sb, func, thisObj);
-        return sb.toString();
-    },
-    swapWriter: function (newWriter, func, thisObj) {
-        var oldWriter = this.writer;
-        this.writer = newWriter;
-        func.call(thisObj);
-        this.writer = oldWriter;
-    },
-    createNestedWriter: function (writer) {
-        var _this = this;
-        var child = new AsyncWriter(writer, _this.global);
-        // Keep a reference to the original stream. This was done because when
-        // rendering to a response stream we can get access to the request/response
-        // to figure out the locale and other information associated with the
-        // client. Without this we would have to rely on the request being
-        // passed around everywhere or rely on something like continuation-local-storage
-        // which has shown to be unreliable in some situations.
-        child._stream = _this._stream; // This is the original stream or the stream wrapped with a BufferedWriter
-        child.stream = _this.stream; // HACK: This is the user assigned stream and not the stream
-                                     //       that was wrapped with a BufferedWriter.
-        return child;
-    },
-    beginAsync: function (options) {
-        if (this._isSync) {
-            throw new Error('beginAsync() not allowed when using renderSync()');
-        }
-
-        var ready = true;
-
-        // Create a new asyncWriter that the async fragment can write to.
-        // The new async asyncWriter will use the existing writer and
-        // the writer for the current asyncWriter (which will continue to be used)
-        // will be replaced with a string buffer writer
-        var asyncOut = this.createNestedWriter(this.writer);
-        var buffer = this.writer = new StringWriter();
-        var asyncFragment = new AsyncFragment(asyncOut);
-        var bufferedFragment = new BufferedFragment(this, buffer);
-        asyncFragment.next = bufferedFragment;
-        asyncOut._af = asyncFragment;
-        asyncOut._parentAF = asyncFragment;
-        var prevAsyncFragment = this._prevAF || this._parentAF;
-        // See if we are being buffered by a previous asynchronous
-        // fragment
-        if (prevAsyncFragment) {
-            // Splice in our two new fragments and add a link to the previous async fragment
-            // so that it can let us know when we are ready to be flushed
-            bufferedFragment.next = prevAsyncFragment.next;
-            prevAsyncFragment.next = asyncFragment;
-            if (!prevAsyncFragment.flushed) {
-                ready = false;    // If we are preceeded by another async fragment then we aren't ready to be flushed
-            }
-        }
-        asyncFragment.ready = ready;
-        // Set the ready flag based on our earlier checks above
-        this._prevAF = bufferedFragment;
-        // Record the previous async fragment for linking purposes
-
-
-        asyncOut.handleBeginAsync(options, this);
-
-        return asyncOut;
-    },
-
-    handleBeginAsync: function(options, parent) {
-        var _this = this;
-
-        var async = _this._async;
-
-        var timeout;
-        var name;
-
-        async.remaining++;
-
-        if (options != null) {
-            if (typeof options === 'number') {
-                timeout = options;
-            } else {
-                timeout = options.timeout;
-
-                if (options.last === true) {
-                    if (timeout == null) {
-                        // Don't assign a timeout to last flush fragments
-                        // unless it is explicitly given a timeout
-                        timeout = 0;
-                    }
-
-                    async.last++;
-                }
-
-                name = options.name;
-            }
-        }
-
-        if (timeout == null) {
-            timeout = AsyncWriter.DEFAULT_TIMEOUT;
-        }
-
-        _this.stack = includeStack ? new Error().stack : null;
-        _this.name = name;
-
-        if (timeout > 0) {
-            _this._timeoutId = setTimeout(function() {
-                _this.error(new Error('Async fragment ' + (name ? '(' + name + ') ': '') + 'timed out after ' + timeout + 'ms'));
-            }, timeout);
-        }
-
-        this._events.emit('beginAsync', {
-            writer: this,
-            parentWriter: parent
-        });
-    },
-    on: function(event, callback) {
-        if (event === 'finish' && this.writer.finished) {
-            callback();
-            return this;
-        }
-
-        this._events.on(event, callback);
-        return this;
-    },
-
-    once: function(event, callback) {
-        if (event === 'finish' && this.writer.finished) {
-            callback();
-            return this;
-        }
-
-        this._events.once(event, callback);
-        return this;
-    },
-
-    onLast: function(callback) {
-        var lastArray = this._last;
-
-        if (!lastArray) {
-            lastArray = this._last = [];
-            var i = 0;
-            var next = function next() {
-                if (i === lastArray.length) {
-                    return;
-                }
-                var _next = lastArray[i++];
-                _next(next);
-            };
-
-            this.once('last', function() {
-                next();
-            });
-        }
-
-        lastArray.push(callback);
-    },
-
-    emit: function(arg) {
-        var events = this._events;
-        switch(arguments.length) {
-            case 0:
-                events.emit();
-                break;
-            case 1:
-                events.emit(arg);
-                break;
-            default:
-                events.emit.apply(events, arguments);
-                break;
-        }
-
-        return this;
-    },
-
-    removeListener: function() {
-        var events = this._events;
-        events.removeListener.apply(events, arguments);
-        return this;
-    },
-
-    pipe: function(stream) {
-        this._stream.pipe(stream);
-        return this;
-    },
-
-    error: function(e) {
-        try {
-            var stack = this.stack;
-            var name = this.name;
-            e = new Error('Async fragment failed' + (name ? ' (' + name + ')': '') + '. Exception: ' + (e.stack || e) + (stack ? ('\nCreation stack trace: ' + stack) : ''));
-            this.emit('error', e);
-        } finally {
-             this.end();
-        }
-    },
-
-    end: function(data) {
-        if (data) {
-            this.write(data);
-        }
-
-        var asyncFragment = this._af;
-
-        if (asyncFragment) {
-            asyncFragment.end();
-            this.handleEnd(true);
-        } else {
-            this.handleEnd(false);
-        }
-
-        return this;
-    },
-
-    handleEnd: function(isAsync) {
-        var async = this._async;
-
-
-        if (async.finished) {
-            return;
-        }
-
-        var remaining;
-
-        if (isAsync) {
-            var timeoutId = this._timeoutId;
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-            }
-
-            remaining = --async.remaining;
-        } else {
-            remaining = async.remaining;
-            async.ended = true;
-        }
-
-        if (async.ended) {
-            if (!async.lastFired && async.remaining - async.last === 0) {
-                async.lastFired = true;
-                async.last = 0;
-                this._events.emit('last');
-            }
-
-            if (remaining === 0) {
-                async.finished = true;
-                this._finish();
-            }
-        }
-    },
-
-    _finish: function() {
-        if (this._stream.end) {
-            this._stream.end();
-        } else {
-            this._events.emit('finish');
-        }
-    },
-
-    flush: function() {
-        if (!this._async.finished) {
-            var stream = this._stream;
-            if (stream && stream.flush) {
-                stream.flush();
-            }
-        }
-    }
-};
-
-AsyncWriter.prototype.w = AsyncWriter.prototype.write;
-
-AsyncWriter.enableAsyncStackTrace = function() {
-    includeStack = true;
-};
-
-module.exports = AsyncWriter;
-
-});
-$rmod.def("/async-writer@1.4.0/lib/async-writer", function(require, exports, module, __filename, __dirname) { /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-/**
- * This module provides the runtime for rendering compiled templates.
- *
- *
- * <p>The code for the Marko compiler is kept separately
- * in the {@link raptor/templating/compiler} module.
- */
-'use strict';
-
-var AsyncWriter = require('./AsyncWriter');
-
-exports.create = function (writer, options) {
-    var global;
-    var buffer;
-
-    if (options) {
-        global = options.global;
-        buffer = options.buffer === true;
-    }
-
-    var asyncWriter = new AsyncWriter(writer, null, null, buffer);    //Create a new context using the writer provided
-    if (global) {
-        asyncWriter.global = asyncWriter.attributes = global;
-    }
-    return asyncWriter;
-};
-
-exports.enableAsyncStackTrace = function() {
-    AsyncWriter.INCLUDE_STACK = true;
-};
-
-exports.AsyncWriter = AsyncWriter;
-
-});
-$rmod.remap("/raptor-renderer@1.4.3/lib/RenderResult", "RenderResult-browser");
-$rmod.def("/raptor-renderer@1.4.3/lib/RenderResult-browser", function(require, exports, module, __filename, __dirname) { 'use strict';
+$rmod.remap("/raptor-renderer@1.4.4/lib/RenderResult", "RenderResult-browser");
+$rmod.def("/raptor-renderer@1.4.4/lib/RenderResult-browser", function(require, exports, module, __filename, __dirname) { 'use strict';
 var dom = require('/$/marko-widgets/$/raptor-dom'/*'raptor-dom'*/);
 var raptorPubsub = require('/$/marko-widgets/$/raptor-pubsub'/*'raptor-pubsub'*/);
 
@@ -5925,7 +4878,6 @@ function RenderResult(html, out) {
 }
 
 RenderResult.prototype = {
-
     getWidget: function () {
         checkAddedToDOM(this, 'getWidget');
 
@@ -5969,44 +4921,48 @@ RenderResult.prototype = {
         }
         return widgets;
     },
-    afterInsert: function () {
+    afterInsert: function (document) {
+        var node = this.getNode(document);
+
         this._added = true;
         raptorPubsub.emit('raptor-renderer/renderedToDOM', {
-            node: this.getNode(),
+            node: node,
             context: this.out,
-            out: this.out
+            out: this.out,
+            document: node.ownerDocument
         });    // NOTE: This will trigger widgets to be initialized if there were any
 
         return this;
     },
     appendTo: function (referenceEl) {
-        dom.appendTo(this.getNode(), referenceEl);
+        dom.appendTo(this.getNode(referenceEl.ownerDocument), referenceEl);
         return this.afterInsert();
     },
     replace: function (referenceEl) {
-        dom.replace(this.getNode(), referenceEl);
+        dom.replace(this.getNode(referenceEl.ownerDocument), referenceEl);
         return this.afterInsert();
     },
     replaceChildrenOf: function (referenceEl) {
-        dom.replaceChildrenOf(this.getNode(), referenceEl);
+        dom.replaceChildrenOf(this.getNode(referenceEl.ownerDocument), referenceEl);
         return this.afterInsert();
     },
     insertBefore: function (referenceEl) {
-        dom.insertBefore(this.getNode(), referenceEl);
+        dom.insertBefore(this.getNode(referenceEl.ownerDocument), referenceEl);
         return this.afterInsert();
     },
     insertAfter: function (referenceEl) {
-        dom.insertAfter(this.getNode(), referenceEl);
+        dom.insertAfter(this.getNode(referenceEl.ownerDocument), referenceEl);
         return this.afterInsert();
     },
     prependTo: function (referenceEl) {
-        dom.prependTo(this.getNode(), referenceEl);
+        dom.prependTo(this.getNode(referenceEl.ownerDocument), referenceEl);
         return this.afterInsert();
     },
-    getNode: function () {
+    getNode: function (document) {
         var node = this._node;
         var curEl;
         var newBodyEl;
+        document = document || window.document;
         if (node === undefined) {
             if (this.html) {
                 newBodyEl = document.createElement('body');
@@ -6035,7 +4991,7 @@ RenderResult.prototype = {
 };
 module.exports = RenderResult;
 });
-$rmod.def("/raptor-renderer@1.4.3/lib/raptor-renderer", function(require, exports, module, __filename, __dirname) { var process=require("process"); 'use strict';
+$rmod.def("/raptor-renderer@1.4.4/lib/raptor-renderer", function(require, exports, module, __filename, __dirname) { var process=require("process"); 'use strict';
 var asyncWriter = require('/$/marko-widgets/$/raptor-renderer/$/async-writer'/*'async-writer'*/);
 var RenderResult = require('./RenderResult');
 var extend = require('/$/marko-widgets/$/raptor-util/extend'/*'raptor-util/extend'*/);
@@ -6431,7 +5387,7 @@ AsyncValue.create = function(config) {
 module.exports = AsyncValue;
 
 });
-$rmod.def("/marko-widgets@5.0.6/lib/update-manager", function(require, exports, module, __filename, __dirname) { var process=require("process"); /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/update-manager", function(require, exports, module, __filename, __dirname) { var process=require("process"); /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6593,7 +5549,7 @@ exports.queueWidgetUpdate = queueWidgetUpdate;
 exports.batchUpdate = batchUpdate;
 exports.onAfterUpdate = onAfterUpdate;
 });
-$rmod.def("/marko-widgets@5.0.6/lib/repeated-id", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/repeated-id", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6637,7 +5593,7 @@ exports.nextId = function(out, parentId, id) {
 };
 
 });
-$rmod.def("/marko-widgets@5.0.6/lib/WidgetDef", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/WidgetDef", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6741,8 +5697,8 @@ WidgetDef.prototype = {
 
 module.exports = WidgetDef;
 });
-$rmod.remap("/marko-widgets@5.0.6/lib/uniqueId", "uniqueId-browser");
-$rmod.def("/marko-widgets@5.0.6/lib/uniqueId-browser", function(require, exports, module, __filename, __dirname) { /*
+$rmod.remap("/marko-widgets@6.0.0-rc.1/lib/uniqueId", "uniqueId-browser");
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/uniqueId-browser", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6757,14 +5713,17 @@ $rmod.def("/marko-widgets@5.0.6/lib/uniqueId-browser", function(require, exports
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+var uniqueId = window.MARKO_WIDGETS_UNIQUE_ID;
+if (!uniqueId) {
+    var _nextUniqueId = 0;
+    window.MARKO_WIDGETS_UNIQUE_ID = uniqueId = function() {
+        return 'wc' + (_nextUniqueId++);
+    };
+}
 
-var nextUniqueId = 0;
-
-module.exports = function() {
-    return 'wc' + nextUniqueId++;
-};
+module.exports = uniqueId;
 });
-$rmod.def("/marko-widgets@5.0.6/lib/WidgetsContext", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/WidgetsContext", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6858,9 +5817,9 @@ WidgetsContext.prototype = {
     _nextWidgetId: function () {
         return uniqueId(this.out);
     },
-    initWidgets: function () {
+    initWidgets: function (document) {
         var widgetDefs = this.widgets;
-        initWidgets.initClientRendered(widgetDefs);
+        initWidgets.initClientRendered(widgetDefs, document);
         this.clearWidgets();
     },
     onBeginWidget: function(listener) {
@@ -6910,7 +5869,7 @@ WidgetsContext.getWidgetsContext = function (out) {
 
 module.exports = WidgetsContext;
 });
-$rmod.def("/marko-widgets@5.0.6/lib/bubble", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/bubble", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6958,7 +5917,7 @@ module.exports = [
     // 'focusout' <-- Not supported in all browsers
 ];
 });
-$rmod.def("/marko-widgets@5.0.6/lib/registry", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/registry", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -6977,37 +5936,44 @@ $rmod.def("/marko-widgets@5.0.6/lib/registry", function(require, exports, module
 var registered = {};
 var loaded = {};
 var widgetTypes = {};
+var defineWidget;
+var defineRenderer;
 
-exports.register = function(path, type) {
-    registered[path] = type;
-    delete loaded[path];
-    delete widgetTypes[path];
+exports.register = function(typeName, type) {
+    if (arguments.length === 1) {
+        var widgetType = arguments[0];
+        typeName = widgetType.name;
+        type = widgetType.def();
+    }
+    registered[typeName] = type;
+    delete loaded[typeName];
+    delete widgetTypes[typeName];
 };
 
-function load(path) {
-    var target = loaded[path];
+function load(typeName) {
+    var target = loaded[typeName];
     if (target === undefined) {
-        target = registered[path];
+        target = registered[typeName];
         if (!target) {
-            target = require(path); // Assume the path has been fully resolved already
+            target = require(typeName); // Assume the typeName has been fully resolved already
         }
-        loaded[path] = target || null;
+        loaded[typeName] = target || null;
     }
 
     if (target == null) {
-        throw new Error('Unable to load: ' + path);
+        throw new Error('Unable to load: ' + typeName);
     }
     return target;
 }
 
-function getWidgetClass(path) {
-    var WidgetClass = widgetTypes[path];
+function getWidgetClass(typeName) {
+    var WidgetClass = widgetTypes[typeName];
 
     if (WidgetClass) {
         return WidgetClass;
     }
 
-    WidgetClass = load(path);
+    WidgetClass = load(typeName);
 
     var renderer;
 
@@ -7023,31 +5989,32 @@ function getWidgetClass(path) {
     WidgetClass = defineWidget(WidgetClass, renderer);
 
     // Make the widget "type" accessible on each widget instance
-    WidgetClass.prototype.__type = path;
+    WidgetClass.prototype.__type = typeName;
 
-    widgetTypes[path] = WidgetClass;
+    widgetTypes[typeName] = WidgetClass;
 
     return WidgetClass;
 }
 
 exports.load = load;
 
-exports.createWidget = function(path, id) {
-    var WidgetClass = getWidgetClass(path);
+exports.createWidget = function(typeName, id, document) {
+    var WidgetClass = getWidgetClass(typeName);
     var widget;
     if (typeof WidgetClass === 'function') {
         // The widget is a constructor function that we can invoke to create a new instance of the widget
-        widget = new WidgetClass(id);
+        widget = new WidgetClass(id, document);
     } else if (WidgetClass.initWidget) {
         widget = WidgetClass;
+        widget.__document = document;
     }
     return widget;
 };
 
-var defineWidget = require('./defineWidget');
-var defineRenderer = require('./defineRenderer');
+defineWidget = require('./defineWidget');
+defineRenderer = require('./defineRenderer');
 });
-$rmod.def("/marko-widgets@5.0.6/lib/defineComponent", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/defineComponent", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7069,6 +6036,9 @@ $rmod.def("/marko-widgets@5.0.6/lib/defineComponent", function(require, exports,
  * @param  {Object} def The definition of the UI component (widget methods, widget constructor, rendering methods, etc.)
  * @return {Widget} The resulting Widget with renderer
  */
+var defineRenderer;
+var defineWidget;
+
 module.exports = function defineComponent(def) {
     if (def._isWidget) {
         return def;
@@ -7085,12 +6055,13 @@ module.exports = function defineComponent(def) {
     return defineWidget(def, renderer);
 };
 
-var defineRenderer = require('./defineRenderer');
-var defineWidget = require('./defineWidget');
+defineRenderer = require('./defineRenderer');
+defineWidget = require('./defineWidget');
 
 
 });
-$rmod.def("/marko-widgets@5.0.6/lib/defineWidget", function(require, exports, module, __filename, __dirname) { /*
+$rmod.remap("/marko-widgets@6.0.0-rc.1/lib/defineWidget", "defineWidget-browser");
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/defineWidget-browser", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7105,6 +6076,8 @@ $rmod.def("/marko-widgets@5.0.6/lib/defineWidget", function(require, exports, mo
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+ var BaseWidget;
+ var inherit;
 
 module.exports = function defineWidget(def, renderer) {
     if (def._isWidget) {
@@ -7146,8 +6119,8 @@ module.exports = function defineWidget(def, renderer) {
     // Instead, we store their constructor in the "initWidget"
     // property and that method gets called later inside
     // init-widgets-browser.js
-    function Widget(id) {
-        BaseWidget.call(this, id);
+    function Widget(id, document) {
+        BaseWidget.call(this, id, document);
     }
 
     if (!proto._isWidget) {
@@ -7177,17 +6150,791 @@ module.exports = function defineWidget(def, renderer) {
     return Widget;
 };
 
-var BaseWidget = require('./Widget');
-var inherit = require('/$/marko-widgets/$/raptor-util/inherit'/*'raptor-util/inherit'*/);
+BaseWidget = require('./Widget');
+inherit = require('/$/marko-widgets/$/raptor-util/inherit'/*'raptor-util/inherit'*/);
 
 
 });
-$rmod.dep("/$/marko-widgets", "marko", "2.7.28");
+$rmod.main("/marko@3.0.0-rc.2", "runtime/marko-runtime");
+$rmod.dep("/$/marko-widgets", "marko", "3.0.0-rc.2");
 $rmod.dep("/$/marko-widgets/$/marko", "async-writer", "1.4.1");
-$rmod.dep("/$/marko-widgets/$/marko", "events", "1.0.2");
+$rmod.dep("/$/marko-widgets/$/marko", "events", "1.1.0");
 $rmod.dep("/$/marko-widgets/$/marko", "raptor-util", "1.0.10");
-$rmod.dep("/$/marko-widgets/$/marko", "raptor-logging", "1.0.6");
-$rmod.def("/marko-widgets@5.0.6/lib/defineRenderer", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/raptor-util@1.0.10/escapeXml", function(require, exports, module, __filename, __dirname) { var elTest = /[&<]/;
+var elTestReplace = /[&<]/g;
+var attrTest = /[&<>\"\'\n]/;
+var attrReplace = /[&<>\"\'\n]/g;
+var replacements = {
+    '<': '&lt;',
+    '>': '&gt;',
+    '&': '&amp;',
+    '"': '&quot;',
+    '\'': '&#39;',
+    '\n': '&#10;' //Preserve new lines so that they don't get normalized as space
+};
+
+function replaceChar(match) {
+    return replacements[match];
+}
+
+function escapeXml(str) {
+    // check for most common case first
+    if (typeof str === 'string') {
+        return elTest.test(str) ? str.replace(elTestReplace, replaceChar) : str;
+    }
+
+    return (str == null) ? '' : str.toString();
+}
+
+function escapeXmlAttr(str) {
+    if (typeof str === 'string') {
+        return attrTest.test(str) ? str.replace(attrReplace, replaceChar) : str;
+    }
+
+    return (str == null) ? '' : str.toString();
+}
+
+
+module.exports = escapeXml;
+escapeXml.attr = escapeXmlAttr;
+});
+$rmod.main("/marko@3.0.0-rc.2/runtime", "marko-runtime");
+$rmod.def("/raptor-util@1.0.10/attr", function(require, exports, module, __filename, __dirname) { var escapeXmlAttr = require('./escapeXml').attr;
+
+module.exports = function(name, value, escapeXml) {
+    if (value === true) {
+        value = '';
+    } else if (value == null || value === '' || value === false) {
+        return '';
+    } else {
+        value = '="' + (escapeXml === false ? value : escapeXmlAttr(value)) + '"';
+    }
+    return ' ' + name + value;
+};
+});
+$rmod.def("/raptor-util@1.0.10/attrs", function(require, exports, module, __filename, __dirname) { var attr = require('./attr');
+
+module.exports = function(_attrs) {
+    var out = '';
+    for (var attrName in _attrs) {
+        if (_attrs.hasOwnProperty(attrName)) {
+            out += attr(attrName, _attrs[attrName]);
+        }
+    }
+    return out;
+};
+});
+$rmod.def("/marko@3.0.0-rc.2/runtime/helpers", function(require, exports, module, __filename, __dirname) { /*
+* Copyright 2011 eBay Software Foundation
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*    http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+'use strict';
+var escapeXml = require('/$/marko-widgets/$/marko/$/raptor-util/escapeXml'/*'raptor-util/escapeXml'*/);
+var escapeXmlAttr = escapeXml.attr;
+var runtime = require('./'); // Circular dependency, but that is okay
+var attr = require('/$/marko-widgets/$/marko/$/raptor-util/attr'/*'raptor-util/attr'*/);
+var attrs = require('/$/marko-widgets/$/marko/$/raptor-util/attrs'/*'raptor-util/attrs'*/);
+var isArray = Array.isArray;
+var STYLE_ATTR = 'style';
+var CLASS_ATTR = 'class';
+
+function notEmpty(o) {
+    if (o == null) {
+        return false;
+    } else if (Array.isArray(o)) {
+        return !!o.length;
+    } else if (o === '') {
+        return false;
+    }
+
+    return true;
+}
+
+function classListArray(classList) {
+    var classNames = [];
+    for (var i=0, len=classList.length; i<len; i++) {
+        var cur = classList[i];
+        if (cur) {
+            classNames.push(cur);
+        }
+    }
+    return classNames.join(' ');
+}
+
+function createDeferredRenderer(handler) {
+    function deferredRenderer(input, out) {
+        deferredRenderer.renderer(input, out);
+    }
+
+    // This is the initial function that will do the rendering. We replace
+    // the renderer with the actual renderer func on the first render
+    deferredRenderer.renderer = function(input, out) {
+        var rendererFunc = handler.renderer || handler.render;
+        if (typeof rendererFunc !== 'function') {
+            throw new Error('Invalid tag handler: ' + handler);
+        }
+        // Use the actual renderer from now on
+        deferredRenderer.renderer = rendererFunc;
+        rendererFunc(input, out);
+    };
+
+    return deferredRenderer;
+}
+
+function resolveRenderer(handler) {
+    var renderer = handler.renderer;
+
+    if (renderer) {
+        return renderer;
+    }
+
+    if (typeof handler === 'function') {
+        return handler;
+    }
+
+    if (typeof (renderer = handler.render) === 'function') {
+        return renderer;
+    }
+
+    // If the user code has a circular function then the renderer function
+    // may not be available on the module. Since we can't get a reference
+    // to the actual renderer(input, out) function right now we lazily
+    // try to get access to it later.
+    return createDeferredRenderer(handler);
+}
+
+module.exports = {
+    /**
+     * Internal helper method to prevent null/undefined from being written out
+     * when writing text that resolves to null/undefined
+     * @private
+     */
+    s: function(str) {
+        return (str == null) ? '' : str;
+    },
+    /**
+     * Internal helper method to handle loops with a status variable
+     * @private
+     */
+    fv: function (array, callback) {
+        if (!array) {
+            return;
+        }
+        if (!array.forEach) {
+            array = [array];
+        }
+        var i = 0;
+        var len = array.length;
+        var loopStatus = {
+                getLength: function () {
+                    return len;
+                },
+                isLast: function () {
+                    return i === len - 1;
+                },
+                isFirst: function () {
+                    return i === 0;
+                },
+                getIndex: function () {
+                    return i;
+                }
+            };
+        for (; i < len; i++) {
+            var o = array[i];
+            callback(o, loopStatus);
+        }
+    },
+    /**
+     * Internal helper method to handle loops without a status variable
+     * @private
+     */
+    f: function forEach(array, callback) {
+        if (isArray(array)) {
+            for (var i=0; i<array.length; i++) {
+                callback(array[i]);
+            }
+        } else if (typeof array === 'function') {
+            // Also allow the first argument to be a custom iterator function
+            array(callback);
+        }
+    },
+    /**
+     * Internal helper method for looping over the properties of any object
+     * @private
+     */
+    fp: function (o, func) {
+        if (!o) {
+            return;
+        }
+        for (var k in o) {
+            if (o.hasOwnProperty(k)) {
+                func(k, o[k]);
+            }
+        }
+    },
+    /**
+     * Internal method to check if an object/array is empty
+     * @private
+     */
+    e: function (o) {
+        return !notEmpty(o);
+    },
+    /**
+     * Internal method to check if an object/array is not empty
+     * @private
+     */
+    ne: notEmpty,
+    /**
+     * Internal method to escape special XML characters
+     * @private
+     */
+    x: escapeXml,
+    /**
+     * Internal method to escape special XML characters within an attribute
+     * @private
+     */
+    xa: escapeXmlAttr,
+    /**
+     * Internal method to render a single HTML attribute
+     * @private
+     */
+    a: attr,
+
+    /**
+     * Internal method to render multiple HTML attributes based on the properties of an object
+     * @private
+     */
+    as: attrs,
+
+    /**
+     * Internal helper method to handle the "style" attribute. The value can either
+     * be a string or an object with style propertes. For example:
+     *
+     * sa('color: red; font-weight: bold') ==> ' style="color: red; font-weight: bold"'
+     * sa({color: 'red', 'font-weight': 'bold'}) ==> ' style="color: red; font-weight: bold"'
+     */
+    sa: function(style) {
+        if (!style) {
+            return '';
+        }
+
+        if (typeof style === 'string') {
+            return attr(STYLE_ATTR, style, false);
+        } else if (typeof style === 'object') {
+            var parts = [];
+            for (var name in style) {
+                if (style.hasOwnProperty(name)) {
+                    var value = style[name];
+                    if (value) {
+                        parts.push(name + ':' + value);
+                    }
+                }
+            }
+            return parts ? attr(STYLE_ATTR, parts.join(';'), false) : '';
+        } else {
+            return '';
+        }
+    },
+
+    /**
+     * Internal helper method to handle the "class" attribute. The value can either
+     * be a string, an array or an object. For example:
+     *
+     * ca('foo bar') ==> ' class="foo bar"'
+     * ca({foo: true, bar: false, baz: true}) ==> ' class="foo baz"'
+     * ca(['foo', 'bar']) ==> ' class="foo bar"'
+     */
+    ca: function(classNames) {
+        if (!classNames) {
+            return '';
+        }
+
+        if (typeof classNames === 'string') {
+            return attr(CLASS_ATTR, classNames, false);
+        } else if (isArray(classNames)) {
+            return attr(CLASS_ATTR, classListArray(classNames), false);
+        } else if (typeof classNames === 'object') {
+            var classList = [];
+            for (var name in classNames) {
+                if (classNames.hasOwnProperty(name)) {
+                    var value = classNames[name];
+                    if (value) {
+                        classList.push(name);
+                    }
+                }
+            }
+            return attr(CLASS_ATTR, classListArray(classList), false);
+        } else {
+            return '';
+        }
+    },
+
+    /**
+     * Loads a template
+     */
+    l: function(path) {
+        if (typeof path === 'string') {
+            return runtime.load(path);
+        } else {
+            // Assume it is already a pre-loaded template
+            return path;
+        }
+    },
+
+    // ----------------------------------
+    // The helpers listed below require an out
+    // ----------------------------------
+
+
+    /**
+     * Invoke a tag handler render function
+     */
+    t: function (renderer, targetProperty, isRepeated, hasNestedTags) {
+        if (renderer) {
+            renderer = resolveRenderer(renderer);
+        }
+
+        if (targetProperty || hasNestedTags) {
+            return function(input, out, parent, renderBody) {
+                // Handle nested tags
+                if (renderBody) {
+                    renderBody(out, input);
+                }
+
+                if (targetProperty) {
+                    // If we are nested tag then we do not have a renderer
+                    if (isRepeated) {
+                        var existingArray = parent[targetProperty];
+                        if (existingArray) {
+                            existingArray.push(input);
+                        } else {
+                            parent[targetProperty] = [input];
+                        }
+                    } else {
+                        parent[targetProperty] = input;
+                    }
+                } else {
+                    // We are a tag with nested tags, but we have already found
+                    // our nested tags by rendering the body
+                    renderer(input, out);
+                }
+            };
+        } else {
+            return renderer;
+        }
+    },
+
+    /**
+     * Internal method to handle includes/partials
+     * @private
+     */
+    i: function(out, template, data) {
+        if (!template) {
+            return;
+        }
+
+        if (typeof template.render === 'function') {
+            template.render(data, out);
+        } else {
+            throw new Error('Invalid template: ' + template);
+        }
+
+        return this;
+    },
+
+    /**
+     * Merges object properties
+     * @param  {[type]} object [description]
+     * @param  {[type]} source [description]
+     * @return {[type]}        [description]
+     */
+    m: function(into, source) {
+        for (var k in source) {
+            if (source.hasOwnProperty(k) && !into.hasOwnProperty(k)) {
+                into[k] = source[k];
+            }
+        }
+        return into;
+    },
+
+    /**
+     * classList(a, b, c, ...)
+     * Joines a list of class names with spaces. Empty class names are omitted.
+     *
+     * classList('a', undefined, 'b') --> 'a b'
+     *
+     */
+    cl: function() {
+        return classListArray(arguments);
+    }
+};
+
+});
+$rmod.remap("/marko@3.0.0-rc.2/runtime/loader", "loader_browser");
+$rmod.def("/marko@3.0.0-rc.2/runtime/loader_browser", function(require, exports, module, __filename, __dirname) { /*
+* Copyright 2011 eBay Software Foundation
+* 
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+* 
+*    http://www.apache.org/licenses/LICENSE-2.0
+* 
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+module.exports = function load(templatePath) {
+    // We make the assumption that the template path is a 
+    // fully resolved module path and that the module exists
+    // as a CommonJS module
+    return require(templatePath);
+};
+});
+$rmod.def("/marko@3.0.0-rc.2/runtime/marko-runtime", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * This module provides the lightweight runtime for loading and rendering
+ * templates. The compilation is handled by code that is part of the
+ * [marko/compiler](https://github.com/raptorjs/marko/tree/master/compiler)
+ * module. If rendering a template on the client, only the runtime is needed
+ * on the client and not the compiler
+ */
+
+// async-writer provides all of the magic to support asynchronous
+// rendering to a stream
+
+'use strict';
+/**
+ * Method is for internal usage only. This method
+ * is invoked by code in a compiled Marko template and
+ * it is used to create a new Template instance.
+ * @private
+ */
+exports.c = function createTemplate(path) {
+    return new Template(path);
+};
+
+var BUFFER_OPTIONS = { buffer: true };
+
+var asyncWriter = require('/$/marko-widgets/$/marko/$/async-writer'/*'async-writer'*/);
+
+// helpers provide a core set of various utility methods
+// that are available in every template (empty, notEmpty, etc.)
+var helpers = require('./helpers');
+
+var loader;
+
+// If the optional "stream" module is available
+// then Readable will be a readable stream
+var Readable;
+
+var AsyncWriter = asyncWriter.AsyncWriter;
+var extend = require('/$/marko-widgets/$/marko/$/raptor-util/extend'/*'raptor-util/extend'*/);
+
+
+
+exports.AsyncWriter = AsyncWriter;
+
+var stream;
+var STREAM = 'stream';
+
+var streamPath;
+try {
+    streamPath = require.resolve(STREAM);
+} catch(e) {}
+
+if (streamPath) {
+    stream = require(streamPath);
+}
+
+function renderCallback(renderFunc, data, globalData, callback) {
+    var out = new AsyncWriter();
+    if (globalData) {
+        extend(out.global, globalData);
+    }
+
+    renderFunc(data, out);
+    return out.end()
+        .on('finish', function() {
+            callback(null, out.getOutput(), out);
+        })
+        .once('error', callback);
+}
+
+function Template(path, func, options) {
+    this.path = path;
+    this._ = func;
+    this._options = !options || options.buffer !== false ?
+        BUFFER_OPTIONS : null;
+}
+
+Template.prototype = {
+    /**
+     * Internal method to initialize a loaded template with a
+     * given create function that was generated by the compiler.
+     * Warning: User code should not depend on this method.
+     *
+     * @private
+     * @param  {Function(__helpers)} createFunc The function used to produce the render(data, out) function.
+     */
+    c: function(createFunc) {
+        this._ = createFunc(helpers);
+    },
+    renderSync: function(data) {
+        var out = new AsyncWriter();
+        out.sync();
+
+        if (data.$global) {
+            out.global = extend(out.global, data.$global);
+            delete data.$global;
+        }
+
+        this._(data, out);
+        return out.getOutput();
+    },
+
+    /**
+     * Renders a template to either a stream (if the last
+     * argument is a Stream instance) or
+     * provides the output to a callback function (if the last
+     * argument is a Function).
+     *
+     * Supported signatures:
+     *
+     * render(data, callback)
+     * render(data, out)
+     * render(data, stream)
+     * render(data, out, callback)
+     * render(data, stream, callback)
+     *
+     * @param  {Object} data The view model data for the template
+     * @param  {AsyncWriter} out A Stream or an AsyncWriter instance
+     * @param  {Function} callback A callback function
+     * @return {AsyncWriter} Returns the AsyncWriter instance that the template is rendered to
+     */
+    render: function(data, out, callback) {
+        var renderFunc = this._;
+        var finalData;
+        var globalData;
+        if (data) {
+            finalData = data;
+
+            if ((globalData = data.$global)) {
+                // We will *move* the "$global" property
+                // into the "out.global" object
+                delete data.$global;
+            }
+        } else {
+            finalData = {};
+        }
+
+        if (typeof out === 'function') {
+            // Short circuit for render(data, callback)
+            return renderCallback(renderFunc, finalData, globalData, out);
+        }
+
+        // NOTE: We create new vars here to avoid a V8 de-optimization due
+        //       to the following:
+        //       Assignment to parameter in arguments object
+        var finalOut = out;
+
+        var shouldEnd = false;
+
+        if (arguments.length === 3) {
+            // render(data, out, callback)
+            if (!finalOut || !finalOut.isAsyncWriter) {
+                finalOut = new AsyncWriter(finalOut);
+                shouldEnd = true;
+            }
+
+            finalOut
+                .on('finish', function() {
+                    callback(null, finalOut.getOutput(), finalOut);
+                })
+                .once('error', callback);
+        } else if (!finalOut || !finalOut.isAsyncWriter) {
+            // Assume the "finalOut" is really a stream
+            //
+            // By default, we will buffer rendering to a stream to prevent
+            // the response from being "too chunky".
+            finalOut = asyncWriter.create(finalOut, this._options);
+            shouldEnd = true;
+        }
+
+        if (globalData) {
+            extend(finalOut.global, globalData);
+        }
+
+        // Invoke the compiled template's render function to have it
+        // write out strings to the provided out.
+        renderFunc(finalData, finalOut);
+
+        // Automatically end output stream (the writer) if we
+        // had to create an async writer (which might happen
+        // if the caller did not provide a writer/out or the
+        // writer/out was not an AsyncWriter).
+        //
+        // If out parameter was originally an AsyncWriter then
+        // we assume that we are writing to output that was
+        // created in the context of another rendering job.
+        return shouldEnd ? finalOut.end() : finalOut;
+    },
+    stream: function(data) {
+        if (!stream) {
+            throw new Error('Module not found: stream');
+        }
+
+        return new Readable(this, data, this._options);
+    }
+};
+
+if (stream) {
+    Readable = function(template, data, options) {
+        Readable.$super.call(this);
+        this._t = template;
+        this._d = data;
+        this._options = options;
+        this._rendered = false;
+    };
+
+    Readable.prototype = {
+        write: function(data) {
+            if (data != null) {
+                this.push(data);
+            }
+        },
+        end: function() {
+            this.push(null);
+        },
+        _read: function() {
+            if (this._rendered) {
+                return;
+            }
+
+            this._rendered = true;
+
+            var template = this._t;
+            var data = this._d;
+
+            var out = asyncWriter.create(this, this._options);
+            template.render(data, out);
+            out.end();
+        }
+    };
+
+    require('/$/marko-widgets/$/marko/$/raptor-util/inherit'/*'raptor-util/inherit'*/)(Readable, stream.Readable);
+}
+
+function createRenderProxy(template) {
+    return function(data, out) {
+        template._(data, out);
+    };
+}
+
+function initTemplate(rawTemplate, templatePath) {
+    if (rawTemplate.render) {
+        return rawTemplate;
+    }
+
+    var createFunc = rawTemplate.create || rawTemplate;
+
+    var template = createFunc.loaded;
+    if (!template) {
+        template = createFunc.loaded = new Template(templatePath);
+        template.c(createFunc);
+    }
+    return template;
+}
+
+function load(templatePath, templateSrc, options) {
+    if (!templatePath) {
+        throw new Error('"templatePath" is required');
+    }
+
+    if (arguments.length === 1) {
+        // templateSrc and options not provided
+    } else if (arguments.length === 2) {
+        // see if second argument is templateSrc (a String)
+        // or options (an Object)
+        var lastArg = arguments[arguments.length - 1];
+        if (typeof lastArg !== 'string') {
+            options = arguments[1];
+            templateSrc = undefined;
+        }
+    } else if (arguments.length === 3) {
+        // assume function called according to function signature
+    } else {
+        throw new Error('Illegal arguments');
+    }
+
+    var template;
+
+    if (typeof templatePath === 'string') {
+        template = initTemplate(loader(templatePath, templateSrc, options), templatePath);
+    } else if (templatePath.render) {
+        template = templatePath;
+    } else {
+        template = initTemplate(templatePath);
+    }
+
+    if (options && (options.buffer != null)) {
+        template = new Template(
+            template.path,
+            createRenderProxy(template),
+            options);
+    }
+
+    return template;
+}
+
+exports.load = load;
+
+exports.createWriter = function(writer) {
+    return new AsyncWriter(writer);
+};
+
+exports.helpers = helpers;
+
+exports.Template = Template;
+
+// The loader is used to load templates that have not already been
+// loaded and cached. On the server, the loader will use
+// the compiler to compile the template and then load the generated
+// module file using the Node.js module loader
+loader = require('./loader');
+
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/defineRenderer", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7354,8 +7101,8 @@ module.exports = function defineRenderer(def) {
 
 
 });
-$rmod.remap("/marko-widgets@5.0.6/lib/marko-widgets", "marko-widgets-browser");
-$rmod.def("/marko-widgets@5.0.6/lib/marko-widgets-browser", function(require, exports, module, __filename, __dirname) { /*
+$rmod.remap("/marko-widgets@6.0.0-rc.1/lib/index", "index-browser");
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/index-browser", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7395,12 +7142,12 @@ exports.writeDomEventsEl = function() {
     /* Intentionally empty in the browser */
 };
 
-function getWidgetForEl(id) {
+function getWidgetForEl(id, document) {
     if (!id) {
         return undefined;
     }
 
-    var node = typeof id === 'string' ? document.getElementById(id) : id;
+    var node = typeof id === 'string' ? (document || window.document).getElementById(id) : id;
     return (node && node.__widget) || undefined;
 }
 
@@ -7426,7 +7173,7 @@ raptorPubsub
         var out = eventArgs.out || eventArgs.context;
         var widgetsContext = out.global.widgets;
         if (widgetsContext) {
-            widgetsContext.initWidgets();
+            widgetsContext.initWidgets(eventArgs.document);
         }
     });
 
@@ -7459,6 +7206,16 @@ ready(function() {
     // is from a DOM event type to a method of a widget.
     require('./bubble').forEach(function addBubbleHandler(eventType) {
         _addEventListener(body, eventType, function(event) {
+            var propagationStopped = false;
+
+            // Monkey-patch to fix #97
+            var oldStopPropagation = event.stopPropagation;
+
+            event.stopPropagation = function() {
+                oldStopPropagation.call(event);
+                propagationStopped = true;
+            };
+
             updateManager.batchUpdate(function() {
                 var curNode = event.target;
                 if (!curNode) {
@@ -7492,6 +7249,9 @@ ready(function() {
 
                         // Invoke the widget method
                         targetWidget[targetMethod](event, curNode);
+                        if (propagationStopped) {
+                            break;
+                        }
                     }
                 } while((curNode = curNode.parentNode) && curNode.getAttribute);
             });
@@ -7509,29 +7269,9 @@ exports.batchUpdate = updateManager.batchUpdate;
 exports.onAfterUpdate = updateManager.onAfterUpdate;
 
 window.$MARKO_WIDGETS = exports; // Helpful when debugging... WARNING: DO NOT USE IN REAL CODE!
-});
-$rmod.remap("/marko-widgets@5.0.6/taglib/helpers/getDynamicClientWidgetPath", "getDynamicClientWidgetPath-browser");
-$rmod.def("/marko-widgets@5.0.6/taglib/helpers/getDynamicClientWidgetPath-browser", function(require, exports, module, __filename, __dirname) { /*
- * Copyright 2011 eBay Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
-module.exports = function getDynamicClientWidgetPath(targetModuleFile) {
-    return targetModuleFile;
-};
 });
-$rmod.def("/marko-widgets@5.0.6/taglib/helpers/widgetArgs", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/helpers/widgetArgs", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7598,7 +7338,7 @@ widgetArgs.cleanup = function(out) {
     delete out.data.widgetArgs;
 };
 });
-$rmod.def("/marko-widgets@5.0.6/lib/widget-args-id", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/lib/widget-args-id", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7616,14 +7356,14 @@ $rmod.def("/marko-widgets@5.0.6/lib/widget-args-id", function(require, exports, 
 
 var repeatedId = require('../lib/repeated-id');
 
-module.exports = function widgetArgsId(widgetArgs, store) {
+module.exports = function widgetArgsId(widgetArgs) {
     var widgetId = widgetArgs.id;
 
     if (widgetId) {
         var out = widgetArgs.out;
         var scope = widgetArgs.scope;
 
-        if (widgetId.charAt(0) === '!') {
+        if (widgetId.charAt(0) === '#') {
             return widgetId.substring(1);
         } else {
             var resolvedId;
@@ -7634,16 +7374,12 @@ module.exports = function widgetArgsId(widgetArgs, store) {
                 resolvedId = scope + '-' + widgetId;
             }
 
-            if (store) {
-                widgetArgs.id = '!' + resolvedId;
-            }
-
             return resolvedId;
         }
     }
 };
 });
-$rmod.def("/marko-widgets@5.0.6/taglib/helpers/widgetBody", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/helpers/widgetBody", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7684,7 +7420,7 @@ module.exports = function widgetBody(out, id, content, widget) {
     }
 };
 });
-$rmod.def("/marko-widgets@5.0.6/taglib/widget-tag", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/widget-tag", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -7723,6 +7459,14 @@ function getExistingWidget(id, type) {
     }
 
     return null;
+}
+
+function registerWidgetType(widgetType) {
+    if (!widgetType.registered) {
+        // Only need to register the widget type once
+        widgetType.registered = true;
+        markoWidgets.registerWidget(widgetType);
+    }
 }
 
 function preserveWidgetEl(existingWidget, out, widgetsContext, widgetBody) {
@@ -7772,13 +7516,14 @@ module.exports = function render(input, out) {
         });
     }
 
-    var modulePath = input.module;
+    var type = input.type;
     var config = input.config || input._cfg;
     var state = input.state || input._state;
     var props = input.props || input._props;
     var widgetArgs = out.data.widgetArgs;
     var bodyElId = input.body;
     var widgetBody = input._body;
+    var typeName = type && type.name;
 
     var id = input.id;
     var extendList;
@@ -7796,6 +7541,13 @@ module.exports = function render(input, out) {
         extendList = widgetArgs.extend;
         customEvents = widgetArgs.customEvents;
 
+        if (extendList) {
+            extendList = extendList.map(function(extendType) {
+                registerWidgetType(extendType);
+                return extendType.name;
+            });
+        }
+
         if ((extendState = widgetArgs.extendState)) {
             if (state) {
                 extend(state, extendState);
@@ -7812,8 +7564,6 @@ module.exports = function render(input, out) {
             }
         }
     }
-
-
 
     var rerenderWidget = global.__rerenderWidget;
     var isRerender = global.__rerender === true;
@@ -7835,14 +7585,16 @@ module.exports = function render(input, out) {
         id = rerenderWidget.id;
         delete global.__rerenderWidget;
     } else if (isRerender) {
-        existingWidget = getExistingWidget(id, modulePath);
+        existingWidget = getExistingWidget(id, typeName);
     }
 
     if (!id && input.hasOwnProperty('id')) {
-        throw new Error('Invalid widget ID for "' + modulePath + '"');
+        throw new Error('Invalid widget ID for "' + typeName + '"');
     }
 
-    if (modulePath) {
+    if (typeName) {
+        registerWidgetType(type);
+
         var shouldRenderBody = true;
 
         if (existingWidget && !rerenderWidget) {
@@ -7878,7 +7630,7 @@ module.exports = function render(input, out) {
         }
 
         var widgetDef = widgetsContext.beginWidget({
-            type: modulePath,
+            type: typeName,
             id: id,
             config: config,
             state: state,
@@ -7903,7 +7655,7 @@ module.exports = function render(input, out) {
     }
 };
 });
-$rmod.main("/src/components/app-try-marko", "index");
+$rmod.main("/src/components/app-try-marko-widgets", "index");
 $rmod.main("/src/components/app-codemirror", "index");
 $rmod.main("/codemirror@5.8.0", "lib/codemirror");
 $rmod.dep("", "codemirror", "5.8.0");
@@ -17305,53 +17057,48 @@ module.exports = {
 };
 });
 $rmod.def("/src/components/app-codemirror/template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
+  var __widgetType = {
+          name: "/src/components/app-codemirror",
+          def: function() {
+            return require("./");
+          }
+        },
+      __markoWidgets = require('/$/marko-widgets'/*"marko-widgets"*/),
+      __widgetAttrs = __markoWidgets.attrs,
+      str = __helpers.s,
       empty = __helpers.e,
       notEmpty = __helpers.ne,
-      __markoWidgets = require('/$/marko-widgets'/*"marko-widgets"*/),
-      _widgetAttrs = __markoWidgets.attrs,
-      __getDynamicClientWidgetPath = require('/$/marko-widgets/taglib/helpers/getDynamicClientWidgetPath-browser'/*"marko-widgets/taglib/helpers/getDynamicClientWidgetPath"*/),
-      __ = "/src/components/app-codemirror",
-      __renderer = __helpers.r,
-      ____________marko_widgets_taglib_widget_tag_js = __renderer(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
-      __tag = __helpers.t,
-      escapeXmlAttr = __helpers.xa,
+      escapeXml = __helpers.x,
+      __loadTag = __helpers.t,
+      w_widget = __loadTag(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
+      classAttr = __helpers.ca,
       attr = __helpers.a,
       attrs = __helpers.as;
 
-  function __registerWidget() {
-    if (typeof window != "undefined") {
-      __markoWidgets.registerWidget(__, require("./"));
-    }
-  }
-
   return function render(data, out) {
-    if (__registerWidget) {
-      __registerWidget();
-      __registerWidget = null;
-    }
-    
-    __tag(out,
-      ____________marko_widgets_taglib_widget_tag_js,
-      {
-        "module": __,
-        "_cfg": data.widgetConfig,
-        "_state": data.widgetState,
-        "_props": data.widgetProps,
-        "_body": data.widgetBody
-      },
-      function(out, widget) {
-        out.w('<div class="app-codemirror' +
-          escapeXmlAttr((data.autoResize ? " app-codemirror-auto-resize" : '')) +
-          escapeXmlAttr((data.fullscreen ? " app-codemirror-fullscreen" : '')) +
-          '"' +
-          attr("id", widget.elId()) +
-          attrs(_widgetAttrs(widget)) +
-          '></div>');
-      });
+    w_widget({
+        type: __widgetType,
+        _cfg: data.widgetConfig,
+        _state: data.widgetState,
+        _props: data.widgetProps,
+        _body: data.widgetBody,
+        renderBody: function renderBody(out, widget) {
+          out.w("<div" +
+            classAttr([
+              "app-codemirror",
+              data.autoResize && "app-codemirror-auto-resize",
+              data.fullscreen && "app-codemirror-fullscreen"
+            ]) +
+            attr("id", widget.id) +
+            attrs(__widgetAttrs(widget)) +
+            "></div>");
+        }
+      }, out);
   };
 }
+
 (module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
+
 });
 $rmod.def("/src/components/app-codemirror/index", function(require, exports, module, __filename, __dirname) { /*require('codemirror/lib/codemirror.css');*/
 /*require('./style.css');*/
@@ -19570,128 +19317,1662 @@ $rmod.def("/codemirror@5.8.0/mode/htmlmixed/htmlmixed", function(require, export
 
 });
 $rmod.run("/$/codemirror/mode/htmlmixed/htmlmixed");
-$rmod.def("/src/components/app-try-marko/test-taglib/button.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
-      empty = __helpers.e,
-      notEmpty = __helpers.ne,
-      attr = __helpers.a,
-      attrs = __helpers.as,
-      escapeXml = __helpers.x;
-
-  return function render(data, out) {
-    out.w('<button type="button"' +
-      attr("disabled", data.disabled) +
-      attrs(data.attrs) +
-      '>');
-
-    if (data.label) {
-      out.w(escapeXml(data.label));
-    }
-    else if (data.renderBody) {
-      data.renderBody(out);
-
-    }
-
-    out.w('</button>');
-  };
-}
-(module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
-});
-$rmod.def("/src/components/app-try-marko/test-taglib/button-renderer", function(require, exports, module, __filename, __dirname) { var template = require('/$/marko'/*'marko'*/).load(require.resolve('./button.marko'));
-
-module.exports = function(input, out) {
-    var attrs = {};
-
-    if (input.color) {
-        attrs.style = 'background-color: ' + input.color + ';';
-    }
-
-    var viewModel = {
-        label: input.label,
-        attrs: attrs,
-        renderBody: input.renderBody,
-        disabled: input.disabled === true
-    };
-
-    template.render(viewModel, out);
+$rmod.run("/$/codemirror/mode/css/css");
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/getRequirePath-browser", function(require, exports, module, __filename, __dirname) { module.exports = function getRequirePath(target, template) {
+    return template.getRequirePath(target);
 };
 });
-$rmod.def("/src/components/app-try-marko/test-taglib/tab-renderer", function(require, exports, module, __filename, __dirname) { exports.render = function(input, out) {
-    // Register with parent but don't render anything
-    input.tabs.addTab(input);
-};
-});
-$rmod.def("/src/components/app-try-marko/test-taglib/tabs.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
-      empty = __helpers.e,
-      notEmpty = __helpers.ne,
-      forEach = __helpers.f,
-      escapeXmlAttr = __helpers.xa,
-      escapeXml = __helpers.x,
-      attr = __helpers.a;
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/init-widgets-tag", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-  return function render(data, out) {
-    out.w('<div class="tabs"><ul class="nav nav-tabs">');
+var markoWidgets = require('../');
+var WidgetContext = markoWidgets.WidgetsContext;
 
-    forEach(data.tabs, function(tab) {
-      out.w('<li class="tab"><a href="#' +
-        escapeXmlAttr(tab.id) +
-        '" data-toggle="tab">' +
-        escapeXml(tab.title) +
-        '</a></li>');
-    });
+module.exports = function render(input, out) {
+    var widgetsContext = markoWidgets.getWidgetsContext(out);
 
-    out.w('</ul><div class="tab-content">');
+    var options = input.immediate ? {immediate: true} : null;
 
-    forEach(data.tabs, function(tab) {
-      out.w('<div' +
-        attr("id", tab.id) +
-        ' class="tab-pane">');
-
-      tab.renderBody(out);
-
-
-      out.w('</div>');
-    });
-
-    out.w('</div></div>');
-  };
-}
-(module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
-});
-$rmod.def("/src/components/app-try-marko/test-taglib/tabs-renderer", function(require, exports, module, __filename, __dirname) { var templatePath = require.resolve('./tabs.marko');
-var template = require('/$/marko'/*'marko'*/).load(templatePath);
-
-exports.render = function(input, out) {
-    var nestedTabs;
-
-    if (input.getTabs) {
-        nestedTabs = [];
-        // Invoke the body function to discover nested <ui-tab> tags
-        input.getTabs({ // Invoke the body with the scoped "tabs" variable
-            addTab: function(tab) {
-                tab.id = tab.id || ("tab" + nestedTabs.length);
-                nestedTabs.push(tab);
+    if (input.immediate === true) {
+        out.global.events.on('asyncFragmentBeforeRender', function(eventArgs) {
+            if (eventArgs.clientReorder) {
+                var asyncFragmentOut = eventArgs.out;
+                asyncFragmentOut.widgets = new WidgetContext(asyncFragmentOut);
             }
         });
-    } else {
-        nestedTabs = input.tabs || [];
+
+        out.global.events.on('asyncFragmentFinish', function(eventArgs) {
+            var asyncFragmentOut = eventArgs.out;
+
+            var widgetsContext = asyncFragmentOut.data.widgets || asyncFragmentOut.global.widgets;
+            if (widgetsContext) {
+                markoWidgets.writeInitWidgetsCode(widgetsContext, asyncFragmentOut, options);
+            }
+        });
     }
 
-    // Now render the markup for the tabs:
-    template.render({
-        tabs: nestedTabs
-    }, out);
+    var asyncOut = out.beginAsync({ last: true, timeout: -1 });
+    out.onLast(function(next) {
+        if (widgetsContext.hasWidgets()) {
+            markoWidgets.writeInitWidgetsCode(widgetsContext, asyncOut, options);
+        }
+
+        asyncOut.end();
+        next();
+    });
 };
 });
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/preserve-tag", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+var widgets = require('../');
+
+module.exports = function render(input, out) {
+
+    var global = out.global;
+
+    if (global.__rerender === true) {
+        var id = input.id;
+
+        // See if the DOM node with the given ID already exists.
+        // If so, then reuse the existing DOM node instead of re-rendering
+        // the children. We have to put a placeholder node that will get
+        // replaced out if we find that the DOM node has already been rendered
+        var condition = input['if'];
+        if (condition !== false) {
+            var existingEl = document.getElementById(id);
+            if (existingEl) {
+                var widgetsContext = widgets.getWidgetsContext(out);
+                var bodyOnly = input.bodyOnly === true;
+                // Don't actually render anything since the element is already in the DOM,
+                // but keep track that the node is being preserved so that we can ignore
+                // it while transforming the old DOM
+
+                if (!bodyOnly) {
+                    var tagName = existingEl.tagName;
+                    // If we are preserving the entire DOM node (not just the body)
+                    // then that means that we have need to render a placeholder to
+                    // mark the target location. We can then replace the placeholder
+                    // node with the existing DOM node
+                    out.write('<' + tagName + ' id="' + id + '"></' + tagName + '>');
+                }
+
+                widgetsContext.addPreservedDOMNode(existingEl, bodyOnly);
+                return;
+            }
+        }
+    }
+
+    if (input.renderBody) {
+        input.renderBody(out);
+    }
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/widget-types-tag", function(require, exports, module, __filename, __dirname) { var buildWidgetTypeNode = require('./util/buildWidgetTypeNode');
+
+module.exports = function codeGenerator(el, codegen) {
+    var builder = codegen.builder;
+
+    var attrs = el.getAttributes();
+
+    var typesObject = {};
+
+    attrs.forEach((attr) => {
+        if (!attr.isLiteralString()) {
+            codegen.addError('Widget type should be a string');
+            return;
+        }
+
+        typesObject[attr.name] = buildWidgetTypeNode(attr.literalValue, codegen.context.dirname, codegen.builder);
+    });
+
+    codegen.addStaticVar('__widgetTypes', builder.literal(typesObject));
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/widgets-transformer", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+'use strict';
+var TransformHelper = require('./TransformHelper');
+
+module.exports = function transform(el, context) {
+    var transformHelper = new TransformHelper(el, context);
+
+    if (el.tagName === 'widget-types') {
+        context.setFlag('hasWidgetTypes');
+    }
+
+    if (el.hasAttribute('w-el-id')) {
+        transformHelper.addError('"w-el-id" attribute is no longer allowed. Use "w-id" instead.');
+        return;
+    }
+
+    if (el.hasAttribute('w-bind')) {
+        el.setFlag('hasWidgetBind');
+        if (el.hasAttribute('w-id')) {
+            transformHelper.addError('The "w-id" attribute cannot be used in conjuntion with the "w-bind" attribute.');
+        }
+        transformHelper.handleWidgetBind();
+    } else if (el.hasAttribute('w-extend')) {
+        el.setFlag('hasWidgetExtend');
+        transformHelper.handleWidgetExtend();
+    }
+
+    if (el.hasAttribute('w-preserve') ||
+        el.hasAttribute('w-preserve-body') ||
+        el.hasAttribute('w-preserve-if') ||
+        el.hasAttribute('w-preserve-body-if')) {
+        transformHelper.handleWidgetPreserve();
+    }
+
+    if (el.hasAttribute('w-id')) {
+        transformHelper.assignWidgetId();
+    } else if (el.hasAttribute('w-for')) {
+        transformHelper.handleWidgetFor();
+    }
+
+    if (el.hasAttribute('w-preserve-attrs')) {
+        transformHelper.handleWidgetPreserveAttrs();
+    }
+
+    if (el.hasAttribute('w-body')) {
+        transformHelper.handleWidgetBody();
+    }
+
+    // Handle w-on* properties
+    transformHelper.handleWidgetEvents();
+
+    // If we need to pass any information to a nested widget then
+    // we start that information in the "out" so that it can be picked
+    // up later by the nested widget. We call this "widget args" and
+    // we generate compiled code that stores the widget args in the out
+    // for the next widget and then we also insert cleanup code to remove
+    // the data out of the out
+    if (el.type !== 'HtmlElement') { // Only custom tags can have nested widgets
+        transformHelper.getWidgetArgs().compile(transformHelper);
+    }
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/assignWidgetId", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+'use strict';
+
+module.exports = function assignWidgetId(isRepeated) {
+    // First check if we have already assigned an ID to thie element
+    var widgetIdInfo = this.widgetIdInfo;
+
+    if (widgetIdInfo) {
+        return this.widgetIdInfo;
+    }
+
+    var el = this.el;
+    var context = this.context;
+    var builder = this.builder;
+
+    var nestedIdExpression;
+    var idExpression;
+
+    var containingWidgetNode = this.getContainingWidgetNode();
+    if (!containingWidgetNode) {
+        // We are assigning a widget ID to a nested widget in a template that does not have a widget.
+        // That means we do not have access to the parent widget variable as part of a closure. We
+        // need to look it up out of the `out.data` map
+        if (!context.isFlagSet('hasWidgetVar')) {
+            context.setFlag('hasWidgetVar');
+
+            var getCurrentWidgetVar = context.importModule('__getCurrentWidget',
+                this.getMarkoWidgetsRequirePath('marko-widgets/taglib/helpers/getCurrentWidget'));
+
+            context.addVar('widget', builder.functionCall(getCurrentWidgetVar, [builder.identifierOut()]));
+        }
+    }
+
+    // In order to attach a DOM event listener directly we need to make sure
+    // the target HTML element has an ID that we can use to get a reference
+    // to the element during initialization. We generate this unique ID
+    // at compile-time to allow consistent IDs during rendering.
+    // We need to handle the following scenarios:
+    //
+    // 1) The HTML element already has an "id" attribute
+    // 2) The HTML element has a "w-id" attribute (we already converted this
+    //    to an "id" attribute above)
+    // 3) The HTML does not have an "id" or "w-el-id" attribute. We must add
+    //    an "id" attribute with a unique ID.
+
+    var isCustomTag = el.type !== 'HtmlElement';
+
+    if (el.hasAttribute('w-id')) {
+        let widgetId = el.getAttributeValue('w-id');
+
+        el.removeAttribute('w-id');
+
+        idExpression = this.buildWidgetElIdFunctionCall(widgetId);
+
+        nestedIdExpression = widgetId;
+
+
+        if (isCustomTag) {
+            // The element is a custom tag
+            this.getWidgetArgs().setId(nestedIdExpression);
+        } else {
+            if (el.hasAttribute('id')) {
+                this.addError('The "w-id" attribute cannot be used in conjuction with the "id" attribute');
+                return;
+            }
+            el.setAttributeValue('id', idExpression);
+        }
+    } else if (el.hasAttribute('id')) {
+        idExpression = el.getAttributeValue('id');
+
+        if (el.isFlagSet('hasWidgetBind') || el.isFlagSet('hasWidgetExtend')) {
+            // We have to attach a listener to the root element of the widget
+            // We will use an empty string as an indicator that it is the root widget
+            // element.
+            nestedIdExpression = builder.literal('');
+        } else {
+            // Convert the raw String to a JavaScript expression. we need to prefix
+            // with '#' to make it clear this is a fully resolved element ID
+            nestedIdExpression = builder.concat(
+                builder.literal('#'),
+                idExpression);
+        }
+    } else {
+        // Case 3 - We need to add a unique "id" attribute
+        let uniqueElId = this.nextUniqueId();
+
+        nestedIdExpression = isRepeated ? builder.literal(uniqueElId + '[]') : builder.literal(uniqueElId);
+
+        idExpression = this.buildWidgetElIdFunctionCall(nestedIdExpression);
+
+        if (isCustomTag) {
+            this.getWidgetArgs().setId(nestedIdExpression);
+        } else {
+            el.setAttributeValue('id', idExpression);
+        }
+    }
+
+    var transformHelper = this;
+
+    this.widgetIdInfo = {
+        idExpression: idExpression,
+        nestedIdExpression: nestedIdExpression,
+        idVarNode: null,
+        createIdVarNode: function() {
+            if (this.idVarNode) {
+                return this.idVarNode;
+            }
+
+            let uniqueElId = transformHelper.nextUniqueId();
+            let idVarName = '__widgetId' + uniqueElId;
+            let idVar = builder.identifier(idVarName);
+
+            this.idVarNode = builder.vars([
+                {
+                    id: idVarName,
+                    init: idExpression
+                }
+            ]);
+
+            this.idExpression = idExpression = idVar;
+
+            this.nestedIdExpression = nestedIdExpression = builder.concat(
+                builder.literal('#'),
+                idVar);
+
+            if (isCustomTag) {
+                transformHelper.getWidgetArgs().setId(nestedIdExpression);
+            } else {
+
+                el.setAttributeValue('id', idExpression);
+            }
+
+            return this.idVarNode;
+        }
+    };
+
+    return this.widgetIdInfo;
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/getContainingWidgetNode", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+function getContainingWidgetNode() {
+    if (this.containingWidgetNode !== undefined) {
+        return this.containingWidgetNode;
+    }
+
+    var curNode = this.el;
+
+    while (true) {
+        if (curNode.tagName === 'w-widget') {
+            this.containingWidgetNode = curNode;
+            return this.containingWidgetNode;
+        } else if (curNode.isFlagSet('hasWidgetExtend')) {
+            this.containingWidgetNode = curNode;
+            return this.containingWidgetNode;
+        }
+
+        curNode = curNode.parentNode;
+
+        if (!curNode) {
+            break;
+        }
+    }
+
+    this.containingWidgetNode = null;
+
+    return null;
+}
+
+module.exports = getContainingWidgetNode;
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/handleWidgetBind", function(require, exports, module, __filename, __dirname) { 
+/*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+'use strict';
+
+module.exports = function handleWidgetBind() {
+    var el = this.el;
+    var context = this.context;
+    var builder = this.builder;
+
+    var bindAttr = el.getAttribute('w-bind');
+    if (bindAttr == null) {
+        return;
+    }
+
+    // A widget is bound to the el...
+
+    // Remove the w-bind attribute since we don't want it showing up in the output DOM
+    el.removeAttribute('w-bind');
+
+    // Read the value for the w-bind attribute. This will be an AST node for the parsed JavaScript
+    var bindAttrValue = bindAttr.value;
+    var modulePath;
+
+    var widgetAttrs = {};
+
+    if (bindAttrValue == null) {
+        modulePath = this.getDefaultWidgetModule();
+    } else if (bindAttr.isLiteralValue()) {
+        modulePath = bindAttr.literalValue; // The value of the literal value
+        if (typeof modulePath !== 'string') {
+            this.addError('The value for the "w-bind" attribute should be a string. Actual: ' + modulePath);
+            return;
+        }
+    } else {
+        // This is a dynamic expression. The <widget-types> should have been found.
+        if (!context.isFlagSet('hasWidgetTypes')) {
+            this.addError('The <widget-types> tag must be used to declare widgets when the value of the "w-bind" attribute is a dynamic expression.');
+            return;
+        }
+
+        widgetAttrs.type = builder.computedMemberExpression(
+            builder.identifier('__widgetTypes'),
+            bindAttrValue);
+    }
+
+    if (modulePath) {
+        let widgetTypeNode = context.addStaticVar('__widgetType', this.buildWidgetTypeNode(modulePath));
+        widgetAttrs.type = widgetTypeNode;
+    }
+
+    var id = el.getAttributeValue('id');
+
+    if (el.hasAttribute('w-config')) {
+        widgetAttrs.config = el.getAttributeValue('w-config');
+        el.removeAttribute('w-config');
+    }
+
+    if (id) {
+        widgetAttrs.id = id;
+    }
+
+    var widgetNode = context.createNodeForEl('w-widget', widgetAttrs);
+    el.wrapWith(widgetNode);
+
+    el.setAttributeValue('id', builder.memberExpression(builder.identifier('widget'), builder.identifier('id')));
+
+    // var _widgetAttrs = __markoWidgets.attrs;
+    var widgetAttrsVar = context.addStaticVar('__widgetAttrs',
+        builder.memberExpression(this.markoWidgetsVar, builder.identifier('attrs')));
+
+    el.addDynamicAttributes(builder.functionCall(widgetAttrsVar, [ builder.identifier('widget') ]));
+
+    this.widgetStack.push({
+        widgetNode: widgetNode,
+        el: el,
+        extend: false
+    });
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/handleWidgetBody", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+'use strict';
+
+module.exports = function handleWidgetBody() {
+    let el = this.el;
+
+    if (!el.hasAttribute('w-body')) {
+        return;
+    }
+
+    let context = this.context;
+    let builder = this.builder;
+
+    let widgetTagNode = this.getContainingWidgetNode();
+
+    if (!widgetTagNode) {
+        this.addError('w-body can only be used within the scope of w-bind');
+        return;
+    }
+
+
+    let widgetBodyExpression = el.getAttributeValue('w-body');
+    el.removeAttribute('w-body');
+
+    if (widgetBodyExpression) {
+        var widgetIdInfo = this.assignWidgetId(true /* repeated */);
+        if (!widgetIdInfo.idVarNode) {
+            let idVarNode = widgetIdInfo.createIdVarNode();
+            el.onBeforeGenerateCode((event) => {
+                event.insertCode(idVarNode);
+            });
+        }
+    } else {
+        this.assignWidgetId(false /* not repeated */);
+        widgetBodyExpression = builder.memberExpression(
+            builder.identifier('data'),
+            builder.identifier('widgetBody')
+        );
+
+        widgetTagNode.setAttributeValue('body', this.getNestedIdExpression());
+    }
+
+    let widgetBodyVar = context.importModule('__widgetBody', this.getMarkoWidgetsRequirePath('marko-widgets/taglib/helpers/widgetBody'));
+
+    let widgetBodyFunctionCall = builder.functionCall(widgetBodyVar, [
+        builder.identifierOut(),
+        this.getIdExpression(),
+        widgetBodyExpression,
+        builder.identifier('widget')
+    ]);
+
+    el.appendChild(widgetBodyFunctionCall);
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/handleWidgetEvents", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+var bubbleEventsLookup = {};
+
+require('../../lib/bubble').forEach(function(eventType) {
+    bubbleEventsLookup[eventType] = true;
+});
+
+function isBubbleEvent(eventType) {
+    return bubbleEventsLookup.hasOwnProperty(eventType);
+}
+
+function isUpperCase(c) {
+    return c == c.toUpperCase();
+}
+
+function addBubblingEventListener(transformHelper, eventType, targetMethod) {
+    var containingWidgetNode = transformHelper.getContainingWidgetNode();
+    var el = transformHelper.el;
+
+    if (!containingWidgetNode) {
+        transformHelper.addError('Unable to handle event "' + eventType + '". HTML element is not nested within a widget.');
+        return;
+    }
+
+    var builder = transformHelper.builder;
+
+    el.setAttributeValue(
+        'data-w-on' + eventType.value,
+        builder.concat(
+            targetMethod,
+            builder.literal('|'),
+            builder.memberExpression(
+                builder.identifier('widget'),
+                builder.identifier('id'))));
+}
+
+function addDirectEventListener(transformHelper, eventType, targetMethod) {
+    var builder = transformHelper.builder;
+    var el = transformHelper.el;
+
+    var addDomEvent = builder.memberExpression(
+        builder.identifier('widget'),
+        builder.identifier('addDomEvent'));
+
+    var addDomEventFunctionCall = builder.functionCall(
+        addDomEvent,
+        [
+            eventType,
+            targetMethod,
+            transformHelper.getNestedIdExpression()
+        ]);
+
+    el.onBeforeGenerateCode((event) => {
+        event.insertCode(addDomEventFunctionCall);
+    });
+
+    // Also add another DOM element that will be used to
+    var containingWidgetNode = transformHelper.getContainingWidgetNode();
+    containingWidgetNode.setAttributeValue('hasDomEvents', builder.literal(1));
+}
+
+function addCustomEventListener(transformHelper, eventType, targetMethod) {
+    // Make sure the widget has an assigned scope ID so that we can bind the custom event listener
+    var widgetArgs = transformHelper.getWidgetArgs();
+    widgetArgs.addCustomEvent(eventType, targetMethod);
+}
+
+module.exports = function handleWidgetEvents() {
+    var el = this.el;
+    var builder = this.builder;
+    var isCustomTag = el.type !== 'HtmlElement';
+    // We configured the Marko compiler to attach a flag to nodes that
+    // have one or more attributes that match the "w-on*" pattern.
+    // We still need to loop over the properties to find and handle
+    // the properties corresponding to those attributes.
+    var hasWidgetEvents = this.el.isFlagSet('hasWidgetEvents') === true;
+
+    if (hasWidgetEvents) {
+        var attrs = el.getAttributes().concat([]);
+
+        attrs.forEach((attr) => {
+            var attrName = attr.name;
+            if (!attrName || !attrName.startsWith('w-on')) {
+                return;
+            }
+
+            el.removeAttribute(attrName);
+
+            var eventType = attrName.substring(4); // Chop off "w-on"
+            var targetMethod = attr.value;
+
+            if (isCustomTag) {
+                var widgetArgs = this.getWidgetArgs();
+                if (widgetArgs.getId() == null) {
+                    widgetArgs.setId(builder.literal(this.nextUniqueId()));
+                }
+
+                // We are adding an event listener for a custom event (not a DOM event)
+                if (eventType.startsWith('-')) {
+                    // Remove the leading dash.
+                    // Example: w-on-before-show → before-show
+                    eventType = eventType.substring(1);
+                } else if (isUpperCase(eventType.charAt(0))) {
+                    // Convert first character to lower case:
+                    // Example: w-onBeforeShow → beforeShow
+                    eventType = eventType.charAt(0).toLowerCase() + eventType.substring(1);
+                }
+
+                eventType = builder.literal(eventType);
+
+                // Node is for a custom tag
+                addCustomEventListener(this, eventType, targetMethod);
+            } else {
+                // We are adding an event listener for a DOM event (not a custom event)
+                //
+                if (eventType.startsWith('-')) {
+                    // Remove the leading dash.
+                    // Example: w-on-before-show → before-show
+                    eventType = eventType.substring(1);
+                }
+
+                // Normalize DOM event types to be all lower case
+                eventType = eventType.toLowerCase();
+
+                // Node is for an HTML element so treat the event as a DOM event
+                var willBubble = isBubbleEvent(eventType);
+
+                eventType = builder.literal(eventType);
+
+                if (willBubble) {
+                    // The event is white listed for bubbling so we know that
+                    // we have already attached a listener on document.body
+                    // that can be used to handle the event. We will add
+                    // a "data-w-on{eventType}" attribute to the output HTML
+                    // for this element that will be used to map the event
+                    // to a method on the containing widget.
+                    addBubblingEventListener(this, eventType, targetMethod);
+                } else {
+                    // The event does not bubble so we must attach a DOM
+                    // event listener directly to the target element.
+                    addDirectEventListener(this, eventType, targetMethod);
+                }
+            }
+        });
+
+    }
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/handleWidgetExtend", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+module.exports = function handleWidgetExtend() {
+    var el = this.el;
+
+    if (!el.hasAttribute('w-extend')) {
+        return;
+    }
+
+    var extendAttr = el.getAttribute('w-extend');
+
+    var modulePath;
+    var widgetArgs = this.getWidgetArgs();
+    var context = this.context;
+    var builder = this.builder;
+
+    if (extendAttr.value == null) {
+        modulePath = this.getDefaultWidgetModule();
+        if (!modulePath) {
+            this.addError('Unable to find default widget module when using w-extend without a value');
+            return;
+        }
+    } else if (extendAttr.isLiteralValue()) {
+        modulePath = extendAttr.literalValue; // The value of the literal value
+        if (typeof modulePath !== 'string') {
+            this.addError('The value for the "w-extend" attribute should be a string.');
+            return;
+        }
+    } else {
+        throw new Error('Not yet implemented');
+    }
+
+    this.widgetStack.push({
+        el: el,
+        extend: true
+    });
+
+    el.addNestedVariable('widget');
+
+    var extendConfig = el.getAttributeValue('w-config');
+
+    if (!extendConfig) {
+        // extendConfig = data.widgetConfig
+        extendConfig = builder.memberExpression(
+            builder.identifier('data'),
+            builder.identifier('widgetConfig'));
+    }
+
+    var extendState = el.getAttributeValue('w-state');
+
+    if (!extendState) {
+        // extendState = data.widgetState
+        extendState = builder.memberExpression(
+            builder.identifier('data'),
+            builder.identifier('widgetState'));
+    }
+
+    var widgetTypeVar = context.addStaticVar('__widgetType', this.buildWidgetTypeNode(modulePath));
+
+    widgetArgs.setExtend(
+            widgetTypeVar,
+            extendConfig,
+            extendState);
+
+    // Do some cleanup
+    el.removeAttribute('w-extend');
+    el.removeAttribute('w-config');
+    el.removeAttribute('w-state');
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/handleWidgetFor", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+module.exports = function handleWidgetFor() {
+    var el = this.el;
+    if (!el.hasAttribute('w-for')) {
+        return;
+    }
+
+    var widgetFor = el.getAttributeValue('w-for');
+
+    if (widgetFor == null) {
+        return;
+    }
+
+
+    // Handle the "w-for" attribute
+    if (el.hasAttribute('for')) {
+        this.addError('The "w-for" attribute cannot be used in conjuction with the "for" attribute');
+    } else {
+        el.setAttributeValue(
+            'for',
+            this.buildWidgetElIdFunctionCall(widgetFor));
+    }
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/handleWidgetPreserve", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+function addPreserve(transformHelper, bodyOnly, condition) {
+
+    var el = transformHelper.el;
+    var context = transformHelper.context;
+    var builder = transformHelper.builder;
+
+    var preserveAttrs = {};
+
+    if (bodyOnly) {
+        preserveAttrs['body-only'] = builder.literal(bodyOnly);
+    }
+
+    if (condition) {
+        preserveAttrs['if'] = condition;
+    }
+
+    var widgetIdInfo = transformHelper.assignWidgetId(true /* repeated */);
+    var idVarNode = widgetIdInfo.idVarNode ? null : widgetIdInfo.createIdVarNode();
+
+    preserveAttrs.id = transformHelper.getIdExpression();
+
+    var preserveNode = context.createNodeForEl('w-preserve', preserveAttrs);
+    var idVarNodeTarget;
+
+    if (bodyOnly) {
+        el.moveChildrenTo(preserveNode);
+        el.appendChild(preserveNode);
+        idVarNodeTarget = el;
+    } else {
+        el.wrapWith(preserveNode);
+        idVarNodeTarget = preserveNode;
+    }
+
+    if (idVarNode) {
+        idVarNodeTarget.onBeforeGenerateCode((event) => {
+            event.insertCode(idVarNode);
+        });
+    }
+
+    return preserveNode;
+}
+
+module.exports = function handleWidgetPreserve() {
+    var el = this.el;
+
+    if (el.hasAttribute('w-preserve')) {
+        el.removeAttribute('w-preserve');
+        addPreserve(this, false);
+    } else if (el.hasAttribute('w-preserve-if')) {
+        addPreserve(this, false, el.getAttributeValue('w-preserve-if'));
+        el.removeAttribute('w-preserve-if');
+    } else if (el.hasAttribute('w-preserve-body')) {
+        el.removeAttribute('w-preserve-body');
+        addPreserve(this, true);
+    } else if (el.hasAttribute('w-preserve-body-if')) {
+        addPreserve(this, true, el.getAttributeValue('w-preserve-body-if'));
+        el.removeAttribute('w-preserve-body-if');
+    }
+};
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/handleWidgetPreserveAttrs", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+function handleWidgetEvents() {
+    var el = this.el;
+    var preserveAttrsExpression = el.getAttributeValue('w-preserve-attrs');
+    el.removeAttribute('w-preserve-attrs');
+    el.setAttributeValue('data-w-preserve-attrs', preserveAttrsExpression);
+}
+
+module.exports = handleWidgetEvents;
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/index", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+'use strict';
+
+var tryRequire = require('try-require');
+var fs = tryRequire('fs', require);
+var nodePath = require('path');
+var WidgetArgs = require('./WidgetArgs');
+var getRequirePath = require('../getRequirePath');
+var buildWidgetTypeNode = require('../util/buildWidgetTypeNode');
+
+class TransformHelper {
+    constructor(el, context) {
+        this.el = el;
+        this.context = context;
+        this.builder = context.builder;
+        this.dirname = context.dirname;
+
+        this.widgetNextElId = 0;
+        this.widgetIdInfo = undefined;
+        this.widgetArgs = undefined;
+        this.containingWidgetNode = undefined;
+        this._markoWidgetsVar = undefined;
+        this.widgetStack = context.data.widgetStack || (context.data.widgetStack = []);
+    }
+
+    addError(message, code) {
+        this.context.addError(this.el, message, code);
+    }
+
+    getWidgetArgs() {
+        return this.widgetArgs || (this.widgetArgs = new WidgetArgs());
+    }
+
+    nextUniqueId() {
+        var widgetNextElId = this.context.data.widgetNextElId;
+        if (widgetNextElId == null) {
+            this.context.data.widgetNextElId = 0;
+        }
+
+        return (this.context.data.widgetNextElId++);
+    }
+
+    getNestedIdExpression() {
+        this.assignWidgetId();
+        return this.getWidgetIdInfo().nestedIdExpression;
+    }
+
+    getIdExpression() {
+        this.assignWidgetId();
+        return this.getWidgetIdInfo().idExpression;
+    }
+
+    getWidgetIdInfo() {
+        return this.widgetIdInfo;
+    }
+
+    getDefaultWidgetModule() {
+        var dirname = this.dirname;
+        if (fs.existsSync(nodePath.join(dirname, 'widget.js'))) {
+            return './widget';
+        } else if (fs.existsSync(nodePath.join(dirname, 'index.js'))) {
+            return './';
+        } else {
+            return null;
+        }
+    }
+
+    getMarkoWidgetsRequirePath(target) {
+        return getRequirePath(target, this.context);
+    }
+
+    get markoWidgetsVar() {
+        if (!this._markoWidgetsVar) {
+            this._markoWidgetsVar = this.context.importModule('__markoWidgets', this.getMarkoWidgetsRequirePath('marko-widgets'));
+        }
+
+        return this._markoWidgetsVar;
+    }
+
+    buildWidgetElIdFunctionCall(id) {
+        var builder = this.builder;
+
+        var widgetElId = builder.memberExpression(
+            builder.identifier('widget'),
+            builder.identifier('elId'));
+
+        return builder.functionCall(widgetElId, arguments.length === 0 ? [] : [ id ]);
+    }
+
+    buildWidgetTypeNode(path) {
+        return buildWidgetTypeNode(path, this.dirname, this.builder);
+    }
+}
+
+TransformHelper.prototype.assignWidgetId = require('./assignWidgetId');
+TransformHelper.prototype.getContainingWidgetNode = require('./getContainingWidgetNode');
+TransformHelper.prototype.handleWidgetEvents = require('./handleWidgetEvents');
+TransformHelper.prototype.handleWidgetPreserve = require('./handleWidgetPreserve');
+TransformHelper.prototype.handleWidgetPreserveAttrs = require('./handleWidgetPreserveAttrs');
+TransformHelper.prototype.handleWidgetBody = require('./handleWidgetBody');
+TransformHelper.prototype.handleWidgetBind = require('./handleWidgetBind');
+TransformHelper.prototype.handleWidgetExtend = require('./handleWidgetExtend');
+TransformHelper.prototype.handleWidgetFor = require('./handleWidgetFor');
+
+module.exports = TransformHelper;
+});
+$rmod.def("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper/WidgetArgs", function(require, exports, module, __filename, __dirname) { /*
+ * Copyright 2011 eBay Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+'use strict';
+
+var getRequirePath = require('../getRequirePath');
+
+class WidgetArgs {
+
+    constructor() {
+        this.id = null;
+        this.customEvents = null;
+        this.extend = null;
+        this.extendConfig = null;
+        this.extendState = null;
+
+        this.empty = true;
+    }
+
+    setId(id) {
+        this.empty = false;
+
+        this.id = id;
+    }
+
+    getId() {
+        return this.id;
+    }
+
+    addCustomEvent(eventType, targetMethod) {
+        this.empty = false;
+
+        if (!this.customEvents) {
+            this.customEvents = [];
+        }
+
+        this.customEvents.push(eventType);
+        this.customEvents.push(targetMethod);
+    }
+
+    setExtend(extendType, extendConfig, extendState) {
+        this.empty = false;
+
+        this.extend = extendType;
+        this.extendConfig = extendConfig;
+        this.extendState = extendState;
+    }
+
+    compile(transformHelper) {
+        if (this.empty) {
+            return;
+        }
+
+        var el = transformHelper.el;
+
+        let widgetArgsFunctionCall = this.buildWidgetArgsFunctionCall(transformHelper);
+        let cleanupWidgetArgsFunctionCall = this.buildCleanupWidgetArgsFunctionCall(transformHelper);
+
+        el.onBeforeGenerateCode((event) => {
+            event.insertCode(widgetArgsFunctionCall);
+        });
+
+        el.onAfterGenerateCode((event) => {
+            event.insertCode(cleanupWidgetArgsFunctionCall);
+        });
+    }
+
+    buildWidgetArgsFunctionCall(transformHelper) {
+        var context = transformHelper.context;
+        var builder = transformHelper.builder;
+
+        var id = this.id;
+        var customEvents = this.customEvents;
+        var extend = this.extend;
+        var extendConfig = this.extendConfig;
+        var extendState = this.extendState;
+
+        // Make sure the nested widget has access to the ID of the containing
+        // widget if it is needed
+        var shouldProvideScope = id || customEvents;
+
+        let widgetArgsVar = context.addStaticVar('__widgetArgs',
+            'require("' + getRequirePath('marko-widgets/taglib/helpers/widgetArgs', context) + '")');
+
+        var functionCallArgs = [
+            builder.identifier('out')
+        ];
+
+        if (shouldProvideScope) {
+            functionCallArgs.push(builder.memberExpression(
+                builder.identifier('widget'),
+                builder.identifier('id')
+            ));
+        } else {
+            functionCallArgs.push(builder.literalNull());
+        }
+
+        if (id != null) {
+            functionCallArgs.push(id);
+        } else {
+            functionCallArgs.push(builder.literalNull());
+        }
+
+        if (customEvents) {
+            functionCallArgs.push(builder.literal(customEvents));
+        }
+
+        if (extend) {
+            if (!customEvents) {
+                functionCallArgs.push(builder.literalNull());
+            }
+
+            functionCallArgs.push(extend);
+            functionCallArgs.push(extendConfig || builder.literalNull());
+            functionCallArgs.push(extendState || builder.literalNull());
+        }
+        return builder.functionCall(widgetArgsVar, functionCallArgs);
+    }
+
+    buildCleanupWidgetArgsFunctionCall(transformHelper) {
+        var context = transformHelper.context;
+        var builder = transformHelper.builder;
+
+        var cleanupWidgetArgsVar = context.addStaticVar('_cleanupWidgetArgs',
+            '__widgetArgs.cleanup');
+
+        return builder.functionCall(cleanupWidgetArgsVar, [builder.identifierOut()]);
+    }
+}
+
+module.exports = WidgetArgs;
+});
+$rmod.main("/src/components/app-tabs", "index");
+$rmod.def("/src/util/dom-util", function(require, exports, module, __filename, __dirname) { exports.appendHtml = function(el, html) {
+    el.insertAdjacentHTML('beforeEnd', html);
+};
+});
+$rmod.def("/src/components/app-tabs/template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
+  var __widgetType = {
+          name: "/src/components/app-tabs",
+          def: function() {
+            return require("./");
+          }
+        },
+      __markoWidgets = require('/$/marko-widgets'/*"marko-widgets"*/),
+      __widgetAttrs = __markoWidgets.attrs,
+      __widgetBody = require('/$/marko-widgets/taglib/helpers/widgetBody'/*"marko-widgets/taglib/helpers/widgetBody"*/),
+      str = __helpers.s,
+      empty = __helpers.e,
+      notEmpty = __helpers.ne,
+      escapeXml = __helpers.x,
+      __loadTag = __helpers.t,
+      w_widget = __loadTag(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
+      escapeXmlAttr = __helpers.xa,
+      attr = __helpers.a,
+      attrs = __helpers.as,
+      forEachWithStatusVar = __helpers.fv,
+      classAttr = __helpers.ca;
+
+  return function render(data, out) {
+    w_widget({
+        type: __widgetType,
+        _cfg: data.widgetConfig,
+        _state: data.widgetState,
+        _props: data.widgetProps,
+        _body: data.widgetBody,
+        renderBody: function renderBody(out, widget) {
+          out.w("<div class=\"app-tabs " +
+            escapeXmlAttr(data.theme) +
+            escapeXmlAttr(data.fullScreen ? " full-screen" : "") +
+            "\"" +
+            attr("id", widget.id) +
+            attrs(__widgetAttrs(widget)) +
+            "><ul class=\"tab-nav\">");
+
+          forEachWithStatusVar(data.tabs, function(tab, loop) {
+            out.w("<li" +
+              classAttr([
+                "tab",
+                tab.isActive && "active"
+              ]) +
+              attr("id", widget.elId("tab" + loop.getIndex())) +
+              ">");
+
+            var __widgetId1 = widget.elId("0[]");
+            out.w("<a href=\"#\"" +
+              attr("data-tab-index", tab.index) +
+              attr("id", __widgetId1) +
+              " data-w-onclick=\"handleTabClick|" +
+              escapeXmlAttr(widget.id) +
+              "\">");
+
+            __widgetBody(out, __widgetId1, "tab.label", widget);
+
+            out.w("</a></li>");
+          });
+
+          out.w("</ul><div style=\"clear: both\"></div><div class=\"tab-panes\">");
+
+          forEachWithStatusVar(data.tabs, function(tab, loop) {
+            var __widgetId2 = widget.elId("tabPane" + loop.getIndex());
+            out.w("<div" +
+              classAttr([
+                "tab-pane",
+                tab.isActive && "active"
+              ]) +
+              attr("id", __widgetId2) +
+              ">");
+
+            __widgetBody(out, __widgetId2, "tab.body", widget);
+
+            out.w("</div>");
+          });
+
+          out.w("</div></div>");
+        }
+      }, out);
+  };
+}
+
+(module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
+
+});
+$rmod.def("/src/components/app-tabs/index", function(require, exports, module, __filename, __dirname) { /*require('./style.css');*/
+
+var domUtil = require('../../util/dom-util');
+
+module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent({
+    template: require.resolve('./template.marko'),
+
+
+    getInitialProps: function(input) {
+        var tabs = [];
+        var activeIndex = -1;
+
+
+        function addTab(tab) {
+            if (tab.active) {
+                activeIndex = tabs.length;
+            }
+
+            tabs.push(tab);
+        }
+
+        if (input.tabs) {
+            input.tabs.forEach(addTab);
+        }
+
+        if (activeIndex === -1) {
+            activeIndex = 0;
+        }
+
+        return {
+            theme: input.theme || 'default',
+            fullScreen: input.fullScreen === true,
+            activeIndex: activeIndex,
+            tabs: tabs
+        };
+    },
+
+    getInitialState: function(input) {
+        return {
+            activeIndex: input.activeIndex,
+            theme: input.theme,
+            fullScreen: input.fullScreen,
+            tabs: input.tabs.map(function(tab) {
+                return {
+                    visible: tab.visible !== false,
+                    id: tab.id
+                };
+            })
+        };
+    },
+
+    getTemplateData: function(state, input) {
+        var activeIndex = state.activeIndex;
+
+        // If this is a rerender then we only have access
+        // to the state which includes the "lightweight" tabs
+        // (without the nested body content). However, if this
+        // is not a rerender then we have access to the input
+        // props which include the complete tabs.
+        var tabs = input ? input.tabs : state.tabs;
+
+        return {
+            theme: state.theme,
+            fullScreen: state.fullScreen,
+            tabs: tabs.map(function(tab, i) {
+                // Build a view model for our tab that will
+                // simplify how the tab is rendered
+                return {
+                    isActive: activeIndex === i,
+                    id: tab.id,
+                    visible: tab.visible,
+                    label: tab.label,
+                    body: tab.renderBody,
+                    index: i
+                };
+            })
+        };
+    },
+
+    setActiveIndex: function(newActiveIndex) {
+        this.setState('activeIndex', newActiveIndex);
+    },
+
+    handleTabClick: function(event, el) {
+        var newActiveIndex = parseInt(el.getAttribute('data-tab-index'), 10);
+        this.setActiveIndex(newActiveIndex);
+        event.preventDefault();
+    }
+});
+});
 $rmod.dep("", "raptor-async", "1.1.2");
-$rmod.main("/raptor-loader@1.0.3", "lib/raptor-loader");
-$rmod.dep("", "raptor-loader", "1.0.3");
+$rmod.dep("", "raptor-util", "1.0.10");
+$rmod.main("/path-browserify@0.0.0", "index");
+$rmod.dep("", "path-browserify", "0.0.0", "path");
+$rmod.dep("", "path-browserify", "0.0.0");
+$rmod.def("/path-browserify@0.0.0/index", function(require, exports, module, __filename, __dirname) { var process=require("process"); // Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+// resolves . and .. elements in a path array with directory names there
+// must be no slashes, empty elements, or device names (c:\) in the array
+// (so also no leading and trailing slashes - it does not distinguish
+// relative and absolute paths)
+function normalizeArray(parts, allowAboveRoot) {
+  // if the path tries to go above the root, `up` ends up > 0
+  var up = 0;
+  for (var i = parts.length - 1; i >= 0; i--) {
+    var last = parts[i];
+    if (last === '.') {
+      parts.splice(i, 1);
+    } else if (last === '..') {
+      parts.splice(i, 1);
+      up++;
+    } else if (up) {
+      parts.splice(i, 1);
+      up--;
+    }
+  }
+
+  // if the path is allowed to go above the root, restore leading ..s
+  if (allowAboveRoot) {
+    for (; up--; up) {
+      parts.unshift('..');
+    }
+  }
+
+  return parts;
+}
+
+// Split a filename into [root, dir, basename, ext], unix version
+// 'root' is just a slash, or nothing.
+var splitPathRe =
+    /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/;
+var splitPath = function(filename) {
+  return splitPathRe.exec(filename).slice(1);
+};
+
+// path.resolve([from ...], to)
+// posix version
+exports.resolve = function() {
+  var resolvedPath = '',
+      resolvedAbsolute = false;
+
+  for (var i = arguments.length - 1; i >= -1 && !resolvedAbsolute; i--) {
+    var path = (i >= 0) ? arguments[i] : process.cwd();
+
+    // Skip empty and invalid entries
+    if (typeof path !== 'string') {
+      throw new TypeError('Arguments to path.resolve must be strings');
+    } else if (!path) {
+      continue;
+    }
+
+    resolvedPath = path + '/' + resolvedPath;
+    resolvedAbsolute = path.charAt(0) === '/';
+  }
+
+  // At this point the path should be resolved to a full absolute path, but
+  // handle relative paths to be safe (might happen when process.cwd() fails)
+
+  // Normalize the path
+  resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
+    return !!p;
+  }), !resolvedAbsolute).join('/');
+
+  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
+};
+
+// path.normalize(path)
+// posix version
+exports.normalize = function(path) {
+  var isAbsolute = exports.isAbsolute(path),
+      trailingSlash = substr(path, -1) === '/';
+
+  // Normalize the path
+  path = normalizeArray(filter(path.split('/'), function(p) {
+    return !!p;
+  }), !isAbsolute).join('/');
+
+  if (!path && !isAbsolute) {
+    path = '.';
+  }
+  if (path && trailingSlash) {
+    path += '/';
+  }
+
+  return (isAbsolute ? '/' : '') + path;
+};
+
+// posix version
+exports.isAbsolute = function(path) {
+  return path.charAt(0) === '/';
+};
+
+// posix version
+exports.join = function() {
+  var paths = Array.prototype.slice.call(arguments, 0);
+  return exports.normalize(filter(paths, function(p, index) {
+    if (typeof p !== 'string') {
+      throw new TypeError('Arguments to path.join must be strings');
+    }
+    return p;
+  }).join('/'));
+};
+
+
+// path.relative(from, to)
+// posix version
+exports.relative = function(from, to) {
+  from = exports.resolve(from).substr(1);
+  to = exports.resolve(to).substr(1);
+
+  function trim(arr) {
+    var start = 0;
+    for (; start < arr.length; start++) {
+      if (arr[start] !== '') break;
+    }
+
+    var end = arr.length - 1;
+    for (; end >= 0; end--) {
+      if (arr[end] !== '') break;
+    }
+
+    if (start > end) return [];
+    return arr.slice(start, end - start + 1);
+  }
+
+  var fromParts = trim(from.split('/'));
+  var toParts = trim(to.split('/'));
+
+  var length = Math.min(fromParts.length, toParts.length);
+  var samePartsLength = length;
+  for (var i = 0; i < length; i++) {
+    if (fromParts[i] !== toParts[i]) {
+      samePartsLength = i;
+      break;
+    }
+  }
+
+  var outputParts = [];
+  for (var i = samePartsLength; i < fromParts.length; i++) {
+    outputParts.push('..');
+  }
+
+  outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+  return outputParts.join('/');
+};
+
+exports.sep = '/';
+exports.delimiter = ':';
+
+exports.dirname = function(path) {
+  var result = splitPath(path),
+      root = result[0],
+      dir = result[1];
+
+  if (!root && !dir) {
+    // No dirname whatsoever
+    return '.';
+  }
+
+  if (dir) {
+    // It has a dirname, strip trailing slash
+    dir = dir.substr(0, dir.length - 1);
+  }
+
+  return root + dir;
+};
+
+
+exports.basename = function(path, ext) {
+  var f = splitPath(path)[2];
+  // TODO: make this comparison case-insensitive on windows?
+  if (ext && f.substr(-1 * ext.length) === ext) {
+    f = f.substr(0, f.length - ext.length);
+  }
+  return f;
+};
+
+
+exports.extname = function(path) {
+  return splitPath(path)[3];
+};
+
+function filter (xs, f) {
+    if (xs.filter) return xs.filter(f);
+    var res = [];
+    for (var i = 0; i < xs.length; i++) {
+        if (f(xs[i], i, xs)) res.push(xs[i]);
+    }
+    return res;
+}
+
+// String.prototype.substr - negative index don't work in IE8
+var substr = 'ab'.substr(-1) === 'b'
+    ? function (str, start, len) { return str.substr(start, len) }
+    : function (str, start, len) {
+        if (start < 0) start = str.length + start;
+        return str.substr(start, len);
+    }
+;
+
+});
+$rmod.def("/raptor-util@1.0.10/isObjectEmpty", function(require, exports, module, __filename, __dirname) { module.exports = function isObjectEmpty(o) {
+    if (!o) {
+        return true;
+    }
+    
+    for (var k in o) {
+        if (o.hasOwnProperty(k)) {
+            return false;
+        }
+    }
+    return true;
+};
+});
+$rmod.main("/marko-widgets@6.0.0-rc.1/taglib/TransformHelper", "index");
+$rmod.main("/raptor-loader@1.0.4", "lib/raptor-loader");
+$rmod.dep("", "raptor-loader", "1.0.4");
 (function(loaderMeta) {
 loaderMeta["_0"] = {"js":["%STATIC_PATH%/browser-async.js"]};
 })(window.$rloaderMeta || (window.$rloaderMeta = {}));
-$rmod.dep("", "raptor-util", "1.0.10");
-$rmod.def("/raptor-loader@1.0.3/lib/resource-loader", function(require, exports, module, __filename, __dirname) { /*
+$rmod.def("/raptor-loader@1.0.4/lib/resource-loader", function(require, exports, module, __filename, __dirname) { /*
  * Copyright 2011 eBay Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19855,309 +21136,8 @@ exports.css = function(href, callback, attributes) {
     insertEl(el);
 };
 });
-$rmod.main("/events@1.1.0", "events");
 $rmod.dep("", "events", "1.1.0");
-$rmod.def("/events@1.1.0/events", function(require, exports, module, __filename, __dirname) { // Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-function EventEmitter() {
-  this._events = this._events || {};
-  this._maxListeners = this._maxListeners || undefined;
-}
-module.exports = EventEmitter;
-
-// Backwards-compat with node 0.10.x
-EventEmitter.EventEmitter = EventEmitter;
-
-EventEmitter.prototype._events = undefined;
-EventEmitter.prototype._maxListeners = undefined;
-
-// By default EventEmitters will print a warning if more than 10 listeners are
-// added to it. This is a useful default which helps finding memory leaks.
-EventEmitter.defaultMaxListeners = 10;
-
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!isNumber(n) || n < 0 || isNaN(n))
-    throw TypeError('n must be a positive number');
-  this._maxListeners = n;
-  return this;
-};
-
-EventEmitter.prototype.emit = function(type) {
-  var er, handler, len, args, i, listeners;
-
-  if (!this._events)
-    this._events = {};
-
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events.error ||
-        (isObject(this._events.error) && !this._events.error.length)) {
-      er = arguments[1];
-      if (er instanceof Error) {
-        throw er; // Unhandled 'error' event
-      }
-      throw TypeError('Uncaught, unspecified "error" event.');
-    }
-  }
-
-  handler = this._events[type];
-
-  if (isUndefined(handler))
-    return false;
-
-  if (isFunction(handler)) {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        args = Array.prototype.slice.call(arguments, 1);
-        handler.apply(this, args);
-    }
-  } else if (isObject(handler)) {
-    args = Array.prototype.slice.call(arguments, 1);
-    listeners = handler.slice();
-    len = listeners.length;
-    for (i = 0; i < len; i++)
-      listeners[i].apply(this, args);
-  }
-
-  return true;
-};
-
-EventEmitter.prototype.addListener = function(type, listener) {
-  var m;
-
-  if (!isFunction(listener))
-    throw TypeError('listener must be a function');
-
-  if (!this._events)
-    this._events = {};
-
-  // To avoid recursion in the case that type === "newListener"! Before
-  // adding it to the listeners, first emit "newListener".
-  if (this._events.newListener)
-    this.emit('newListener', type,
-              isFunction(listener.listener) ?
-              listener.listener : listener);
-
-  if (!this._events[type])
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  else if (isObject(this._events[type]))
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  else
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-
-  // Check for listener leak
-  if (isObject(this._events[type]) && !this._events[type].warned) {
-    if (!isUndefined(this._maxListeners)) {
-      m = this._maxListeners;
-    } else {
-      m = EventEmitter.defaultMaxListeners;
-    }
-
-    if (m && m > 0 && this._events[type].length > m) {
-      this._events[type].warned = true;
-      console.error('(node) warning: possible EventEmitter memory ' +
-                    'leak detected. %d listeners added. ' +
-                    'Use emitter.setMaxListeners() to increase limit.',
-                    this._events[type].length);
-      if (typeof console.trace === 'function') {
-        // not supported in IE 10
-        console.trace();
-      }
-    }
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  if (!isFunction(listener))
-    throw TypeError('listener must be a function');
-
-  var fired = false;
-
-  function g() {
-    this.removeListener(type, g);
-
-    if (!fired) {
-      fired = true;
-      listener.apply(this, arguments);
-    }
-  }
-
-  g.listener = listener;
-  this.on(type, g);
-
-  return this;
-};
-
-// emits a 'removeListener' event iff the listener was removed
-EventEmitter.prototype.removeListener = function(type, listener) {
-  var list, position, length, i;
-
-  if (!isFunction(listener))
-    throw TypeError('listener must be a function');
-
-  if (!this._events || !this._events[type])
-    return this;
-
-  list = this._events[type];
-  length = list.length;
-  position = -1;
-
-  if (list === listener ||
-      (isFunction(list.listener) && list.listener === listener)) {
-    delete this._events[type];
-    if (this._events.removeListener)
-      this.emit('removeListener', type, listener);
-
-  } else if (isObject(list)) {
-    for (i = length; i-- > 0;) {
-      if (list[i] === listener ||
-          (list[i].listener && list[i].listener === listener)) {
-        position = i;
-        break;
-      }
-    }
-
-    if (position < 0)
-      return this;
-
-    if (list.length === 1) {
-      list.length = 0;
-      delete this._events[type];
-    } else {
-      list.splice(position, 1);
-    }
-
-    if (this._events.removeListener)
-      this.emit('removeListener', type, listener);
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  var key, listeners;
-
-  if (!this._events)
-    return this;
-
-  // not listening for removeListener, no need to emit
-  if (!this._events.removeListener) {
-    if (arguments.length === 0)
-      this._events = {};
-    else if (this._events[type])
-      delete this._events[type];
-    return this;
-  }
-
-  // emit removeListener for all listeners on all events
-  if (arguments.length === 0) {
-    for (key in this._events) {
-      if (key === 'removeListener') continue;
-      this.removeAllListeners(key);
-    }
-    this.removeAllListeners('removeListener');
-    this._events = {};
-    return this;
-  }
-
-  listeners = this._events[type];
-
-  if (isFunction(listeners)) {
-    this.removeListener(type, listeners);
-  } else if (listeners) {
-    // LIFO order
-    while (listeners.length)
-      this.removeListener(type, listeners[listeners.length - 1]);
-  }
-  delete this._events[type];
-
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  var ret;
-  if (!this._events || !this._events[type])
-    ret = [];
-  else if (isFunction(this._events[type]))
-    ret = [this._events[type]];
-  else
-    ret = this._events[type].slice();
-  return ret;
-};
-
-EventEmitter.prototype.listenerCount = function(type) {
-  if (this._events) {
-    var evlistener = this._events[type];
-
-    if (isFunction(evlistener))
-      return 1;
-    else if (evlistener)
-      return evlistener.length;
-  }
-  return 0;
-};
-
-EventEmitter.listenerCount = function(emitter, type) {
-  return emitter.listenerCount(type);
-};
-
-function isFunction(arg) {
-  return typeof arg === 'function';
-}
-
-function isNumber(arg) {
-  return typeof arg === 'number';
-}
-
-function isObject(arg) {
-  return typeof arg === 'object' && arg !== null;
-}
-
-function isUndefined(arg) {
-  return arg === void 0;
-}
-
-});
-$rmod.def("/raptor-loader@1.0.3/lib/raptor-loader", function(require, exports, module, __filename, __dirname) { var process=require("process"); var resourceLoader = require('./resource-loader');
+$rmod.def("/raptor-loader@1.0.4/lib/raptor-loader", function(require, exports, module, __filename, __dirname) { var process=require("process"); var resourceLoader = require('./resource-loader');
 var EventEmitter = require('events'/*'events'*/).EventEmitter;
 
 var timeout = 3000;
@@ -20257,9 +21237,12 @@ function async(asyncId, callback) {
     load(resources, function(err, result) {
         // Trigger "ready" event in raptor modules client to trigger running of
         // require-run modules that were loaded asynchronously
-        // TODO: Async package loader shouldn't know anything about raptor modules
-        /*global $rmod */
-        $rmod.ready();
+        // HACK: Async package loader shouldn't know anything about raptor modules
+        var modulesRuntime;
+        if ((modulesRuntime = window.$rmod)) {
+            modulesRuntime.ready();
+        }
+
         callback(err, result);
     });
 }
@@ -20271,130 +21254,224 @@ exports.setTimeout = function(_timeout) {
 exports.load = load;
 exports.async = async;
 });
-$rmod.def("/src/components/app-try-marko/layout-default.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
+$rmod.def("/marko@3.0.0-rc.2/taglibs/layout/put-tag", function(require, exports, module, __filename, __dirname) { module.exports = function render(input, context) {
+    var layout = input.layout;
+    var handlePutTag = layout.handlePutTag;
+    handlePutTag(input);
+};
+});
+$rmod.def("/marko@3.0.0-rc.2/taglibs/layout/use-tag-transformer", function(require, exports, module, __filename, __dirname) { 'use strict';
+
+module.exports = function transform(el, context) {
+    var argument = el.argument;
+    if (!argument) {
+        context.addError(el, 'Invalid <layout-use> tag. Expected: <layout-use(template[, data]) ...>');
+        return;
+    }
+    var builder = context.builder;
+
+    var args = builder.parseJavaScriptArgs(argument);
+    var template = args[0];
+
+    if (template.type === 'Literal') {
+        template = context.importTemplate(template.value);
+    }
+
+    if (args[1]) {
+        el.setAttributeValue('__data', args[1]);
+    }
+
+    el.argument = null;
+
+    el.setAttributeValue('__template', template);
+};
+});
+$rmod.def("/marko@3.0.0-rc.2/taglibs/layout/use-tag", function(require, exports, module, __filename, __dirname) { module.exports = function render(input, context) {
+    var content = {};
+
+    if (input.getContent) {
+        input.getContent({
+            handlePutTag: function (putTag) {
+                content[putTag.into] = putTag;
+            }
+        });
+    }
+
+    var dataArg = input.__data;
+    var templateData = input['*'] || {};
+
+    if (dataArg) {
+        for (var k in dataArg) {
+            if (dataArg.hasOwnProperty(k) && !templateData.hasOwnProperty(k)) {
+                templateData[k] = dataArg[k];
+            }
+        }
+    }
+    templateData.layoutContent = content;
+    input.__template.render(templateData, context);
+};
+});
+$rmod.dep("", "marko", "3.0.0-rc.2");
+$rmod.def("/marko@3.0.0-rc.2/taglibs/layout/placeholder-tag", function(require, exports, module, __filename, __dirname) { module.exports = function render(input, out) {
+    var contentMap = input.content;
+    var content = contentMap ? contentMap[input.name] : null;
+    if (content) {
+        if (content.value) {
+            out.write(content.value);
+        } else if (content.renderBody) {
+            content.renderBody(out);
+        }
+    } else {
+        if (input.renderBody) {
+            input.renderBody(out);
+        }
+    }
+};
+});
+$rmod.def("/src/components/app-try-marko-widgets/layout-default.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
   var str = __helpers.s,
       empty = __helpers.e,
       notEmpty = __helpers.ne,
-      __renderer = __helpers.r,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js = __renderer(require("../../../../marko/node_modules/marko-layout/placeholder-tag")),
-      __tag = __helpers.t;
+      escapeXml = __helpers.x,
+      __loadTag = __helpers.t,
+      app_tabs = __loadTag(require("../app-tabs"), 0, 0, 1),
+      app_tabs_tab = __loadTag(null, "tabs", 1),
+      layout_placeholder = __loadTag(require('/$/marko/taglibs/layout/placeholder-tag'/*"marko/taglibs/layout/placeholder-tag"*/));
 
   return function render(data, out) {
-    out.w('<div class="cols-ctr"><div class="mto-col-input"><div class="mto-tile mto-tile-template"><h2>Marko Template</h2>');
-    __tag(out,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js,
-      {
-        "name": "template",
-        "content": data.layoutContent
-      });
+    out.w("<div class=\"cols-ctr\"><div class=\"input-col\"><div class=\"mto-tile mto-tile-javascript\">");
 
-    out.w('</div><div class="mto-tile mto-tile-mto-data"><h2>Data</h2>');
-    __tag(out,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js,
-      {
-        "name": "data",
-        "content": data.layoutContent
-      });
+    app_tabs({
+        fullScreen: true
+      }, out, 0, function renderBody(out, app_tabs0) {
+      app_tabs_tab({
+          label: "JavaScript",
+          renderBody: function renderBody(out) {
+            layout_placeholder({
+                name: "javaScript",
+                content: data.layoutContent
+              }, out);
+          }
+        }, out, app_tabs0);
+    });
 
-    out.w('</div><div class="mto-tile mto-tile-mto-options"><h2>Options</h2>');
-    __tag(out,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js,
-      {
-        "name": "options",
-        "content": data.layoutContent
-      });
+    out.w("</div></div><div class=\"output-col\"><div class=\"top\">");
 
-    out.w('</div></div><div class="mto-col-output"><div class="mto-tile mto-tile-output"><h2>HTML Output</h2>');
-    __tag(out,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js,
-      {
-        "name": "output",
-        "content": data.layoutContent
-      });
+    app_tabs({
+        fullScreen: true
+      }, out, 0, function renderBody(out, app_tabs1) {
+      app_tabs_tab({
+          label: "Marko Template",
+          renderBody: function renderBody(out) {
+            layout_placeholder({
+                name: "template",
+                content: data.layoutContent
+              }, out);
+          }
+        }, out, app_tabs1);
 
-    out.w('</div><div class="mto-tile mto-tile-compiled"><h2>Compiled Template</h2>');
-    __tag(out,
-      ____________marko_node_modules_marko_layout_placeholder_tag_js,
-      {
-        "name": "compiled",
-        "content": data.layoutContent
-      });
+      app_tabs_tab({
+          label: "CSS",
+          renderBody: function renderBody(out) {
+            layout_placeholder({
+                name: "css",
+                content: data.layoutContent
+              }, out);
+          }
+        }, out, app_tabs1);
+    });
 
-    out.w('</div></div></div><div style="clear: both"></div>');
+    out.w("</div><div class=\"middle\">");
+
+    app_tabs({
+        fullScreen: true
+      }, out, 0, function renderBody(out, app_tabs2) {
+      app_tabs_tab({
+          label: "Input Props",
+          renderBody: function renderBody(out) {
+            layout_placeholder({
+                name: "input",
+                content: data.layoutContent
+              }, out);
+          }
+        }, out, app_tabs2);
+    });
+
+    out.w("</div><div class=\"bottom\"><h2>Output</h2>");
+
+    layout_placeholder({
+        name: "output",
+        content: data.layoutContent
+      }, out);
+
+    out.w("</div></div></div><div style=\"clear: both\"></div>");
   };
 }
+
 (module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
+
 });
 $rmod.main("/src/components/app-marko-try-online-errors", "index");
 $rmod.def("/src/components/app-marko-try-online-errors/errors-template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
   var str = __helpers.s,
       empty = __helpers.e,
       notEmpty = __helpers.ne,
-      forEach = __helpers.f,
-      escapeXml = __helpers.x;
+      escapeXml = __helpers.x,
+      forEach = __helpers.f;
 
   return function render(data, out) {
-    out.w('<div class="errors">');
+    out.w("<div class=\"errors\">");
 
     forEach(data.errors, function(error) {
-      out.w('<div class="error"><span class="icon">\u2718</span><pre class="message">' +
+      out.w("<div class=\"error\"><span class=\"icon\">✘</span><pre class=\"message\">" +
         escapeXml(error.message) +
-        '</pre></div>');
+        "\n</pre></div>");
     });
 
-    out.w('</div>');
+    out.w("</div>");
   };
 }
+
 (module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
-});
-$rmod.def("/src/util/dom-util", function(require, exports, module, __filename, __dirname) { exports.appendHtml = function(el, html) {
-    el.insertAdjacentHTML('beforeEnd', html);
-};
+
 });
 $rmod.def("/src/components/app-marko-try-online-errors/template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
+  var __widgetType = {
+          name: "/src/components/app-marko-try-online-errors",
+          def: function() {
+            return require("./");
+          }
+        },
+      __markoWidgets = require('/$/marko-widgets'/*"marko-widgets"*/),
+      __widgetAttrs = __markoWidgets.attrs,
+      str = __helpers.s,
       empty = __helpers.e,
       notEmpty = __helpers.ne,
-      __markoWidgets = require('/$/marko-widgets'/*"marko-widgets"*/),
-      _widgetAttrs = __markoWidgets.attrs,
-      __getDynamicClientWidgetPath = require('/$/marko-widgets/taglib/helpers/getDynamicClientWidgetPath-browser'/*"marko-widgets/taglib/helpers/getDynamicClientWidgetPath"*/),
-      __ = "/src/components/app-marko-try-online-errors",
-      __renderer = __helpers.r,
-      ____________marko_widgets_taglib_widget_tag_js = __renderer(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
-      __tag = __helpers.t,
+      escapeXml = __helpers.x,
+      __loadTag = __helpers.t,
+      w_widget = __loadTag(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
       attr = __helpers.a,
       attrs = __helpers.as;
 
-  function __registerWidget() {
-    if (typeof window != "undefined") {
-      __markoWidgets.registerWidget(__, require("./"));
-    }
-  }
-
   return function render(data, out) {
-    if (__registerWidget) {
-      __registerWidget();
-      __registerWidget = null;
-    }
-    
-    __tag(out,
-      ____________marko_widgets_taglib_widget_tag_js,
-      {
-        "module": __,
-        "_cfg": data.widgetConfig,
-        "_state": data.widgetState,
-        "_props": data.widgetProps,
-        "_body": data.widgetBody
-      },
-      function(out, widget) {
-        out.w('<div class="errors-container"' +
-          attr("id", widget.elId()) +
-          attrs(_widgetAttrs(widget)) +
-          '></div>');
-      });
+    w_widget({
+        type: __widgetType,
+        _cfg: data.widgetConfig,
+        _state: data.widgetState,
+        _props: data.widgetProps,
+        _body: data.widgetBody,
+        renderBody: function renderBody(out, widget) {
+          out.w("<div class=\"errors-container\"" +
+            attr("id", widget.id) +
+            attrs(__widgetAttrs(widget)) +
+            "></div>");
+        }
+      }, out);
   };
 }
+
 (module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
+
 });
 $rmod.def("/src/components/app-marko-try-online-errors/index", function(require, exports, module, __filename, __dirname) { var errorsTemplate = require('./errors-template.marko');
 
@@ -20446,193 +21523,230 @@ module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent(
     }
 });
 });
-$rmod.def("/src/components/app-try-marko/template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
-      empty = __helpers.e,
-      notEmpty = __helpers.ne,
+$rmod.def("/src/components/app-try-marko-widgets/template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
+  var __widgetType = {
+          name: "/src/components/app-try-marko-widgets",
+          def: function() {
+            return require("./");
+          }
+        },
       __markoWidgets = require('/$/marko-widgets'/*"marko-widgets"*/),
-      _widgetAttrs = __markoWidgets.attrs,
-      __getDynamicClientWidgetPath = require('/$/marko-widgets/taglib/helpers/getDynamicClientWidgetPath-browser'/*"marko-widgets/taglib/helpers/getDynamicClientWidgetPath"*/),
-      __ = "/src/components/app-try-marko",
-      __loadTemplate = __helpers.l,
-      __layout_default_marko = __loadTemplate(require.resolve("./layout-default.marko"), require),
+      __widgetAttrs = __markoWidgets.attrs,
+      loadTemplate = __helpers.l,
+      __layout_default = loadTemplate(require.resolve("./layout-default.marko")),
       __widgetArgs = require('/$/marko-widgets/taglib/helpers/widgetArgs'/*"marko-widgets/taglib/helpers/widgetArgs"*/),
       _cleanupWidgetArgs = __widgetArgs.cleanup,
-      __renderer = __helpers.r,
-      ____________marko_widgets_taglib_widget_tag_js = __renderer(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
-      __tag = __helpers.t,
-      escapeXmlAttr = __helpers.xa,
+      str = __helpers.s,
+      empty = __helpers.e,
+      notEmpty = __helpers.ne,
+      escapeXml = __helpers.x,
+      __loadTag = __helpers.t,
+      w_widget = __loadTag(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
       attr = __helpers.a,
       attrs = __helpers.as,
-      ____________marko_node_modules_marko_layout_use_tag_js = __renderer(require("../../../../marko/node_modules/marko-layout/use-tag")),
-      ____________marko_node_modules_marko_layout_put_tag_js = __renderer(require("../../../../marko/node_modules/marko-layout/put-tag")),
-      ___app_codemirror_index_js = __renderer(require("../app-codemirror")),
-      ___app_marko_try_online_errors_index_js = __renderer(require("../app-marko-try-online-errors"));
-
-  function __registerWidget() {
-    if (typeof window != "undefined") {
-      __markoWidgets.registerWidget(__, require("./"));
-    }
-  }
+      layout_use = __loadTag(require('/$/marko/taglibs/layout/use-tag'/*"marko/taglibs/layout/use-tag"*/)),
+      layout_put = __loadTag(require('/$/marko/taglibs/layout/put-tag'/*"marko/taglibs/layout/put-tag"*/)),
+      app_codemirror = __loadTag(require("../app-codemirror")),
+      app_marko_try_online_errors = __loadTag(require("../app-marko-try-online-errors"));
 
   return function render(data, out) {
-    if (__registerWidget) {
-      __registerWidget();
-      __registerWidget = null;
-    }
-    
-    __tag(out,
-      ____________marko_widgets_taglib_widget_tag_js,
-      {
-        "module": __,
-        "_cfg": data.widgetConfig,
-        "_state": data.widgetState,
-        "_props": data.widgetProps,
-        "_body": data.widgetBody
-      },
-      function(out, widget) {
-        out.w('<div class="app-try-marko-inline' +
-          escapeXmlAttr((data.inline ? " inline" : '')) +
-          '"' +
-          attr("id", widget.elId()) +
-          attrs(_widgetAttrs(widget)) +
-          '>');
-        __tag(out,
-          ____________marko_node_modules_marko_layout_use_tag_js,
-          {
-            "template": __layout_default_marko,
-            "getContent": function(__layoutHelper) {
-              __tag(out,
-                ____________marko_node_modules_marko_layout_put_tag_js,
-                {
-                  "into": "template",
-                  "layout": __layoutHelper
-                },
-                function(out) {
-                  if (data.templateNav) {
-                    data.templateNav.renderBody(out);
+    w_widget({
+        type: __widgetType,
+        _cfg: data.widgetConfig,
+        _state: data.widgetState,
+        _props: data.widgetProps,
+        _body: data.widgetBody,
+        renderBody: function renderBody(out, widget) {
+          out.w("<div class=\"app-try-marko-widgets\"" +
+            attr("id", widget.id) +
+            attrs(__widgetAttrs(widget)) +
+            ">");
 
-                  }
-                  __widgetArgs(out, widget.id, "templateEditor", ["change","handleTemplateEditorChange"]);
-                  __tag(out,
-                    ___app_codemirror_index_js,
-                    {
-                      "mode": "htmlmixed",
-                      "autoResize": true,
-                      "theme": "default",
-                      "code": data.templateCode
-                    });
-                  _cleanupWidgetArgs(out);
-                  __widgetArgs(out, widget.id, "templateErrors");
-                  __tag(out,
-                    ___app_marko_try_online_errors_index_js,
-                    {});
-                  _cleanupWidgetArgs(out);
-                });
-              __tag(out,
-                ____________marko_node_modules_marko_layout_put_tag_js,
-                {
-                  "into": "data",
-                  "layout": __layoutHelper
-                },
-                function(out) {
-                  __widgetArgs(out, widget.id, "dataEditor", ["change","handleDataEditorChange"]);
-                  __tag(out,
-                    ___app_codemirror_index_js,
-                    {
-                      "mode": "javascript",
-                      "theme": "default",
-                      "autoResize": true,
-                      "code": data.dataCode
-                    });
-                  _cleanupWidgetArgs(out);
-                  __widgetArgs(out, widget.id, "dataErrors");
-                  __tag(out,
-                    ___app_marko_try_online_errors_index_js,
-                    {});
-                  _cleanupWidgetArgs(out);
-                });
-              __tag(out,
-                ____________marko_node_modules_marko_layout_put_tag_js,
-                {
-                  "into": "options",
-                  "layout": __layoutHelper
-                },
-                function(out) {
-                  __widgetArgs(out, widget.id, "optionsEditor", ["change","handleOptionsEditorChange"]);
-                  __tag(out,
-                    ___app_codemirror_index_js,
-                    {
-                      "mode": "javascript",
-                      "theme": "default",
-                      "autoResize": true
-                    });
-                  _cleanupWidgetArgs(out);
-                  __widgetArgs(out, widget.id, "optionsErrors");
-                  __tag(out,
-                    ___app_marko_try_online_errors_index_js,
-                    {});
-                  _cleanupWidgetArgs(out);
-                });
-              __tag(out,
-                ____________marko_node_modules_marko_layout_put_tag_js,
-                {
-                  "into": "output",
-                  "layout": __layoutHelper
-                },
-                function(out) {
-                  __widgetArgs(out, widget.id, "outputEditor");
-                  __tag(out,
-                    ___app_codemirror_index_js,
-                    {
-                      "mode": "htmlmixed",
-                      "autoResize": true,
-                      "readOnly": true,
-                      "autoFormat": true,
-                      "theme": "default",
-                      "code": data.htmlCode
-                    });
-                  _cleanupWidgetArgs(out);
+          layout_use({
+              __template: __layout_default,
+              getContent: function getContent(__layoutHelper) {
+                layout_put({
+                    into: "javaScript",
+                    layout: __layoutHelper,
+                    renderBody: function renderBody(out) {
+                      out.w("<div class=\"editor-wrapper\"" +
+                        attr("id", widget.elId("javaScriptWrapper")) +
+                        ">");
 
-                  if (!data.inline) {
-                    out.w('<div class="mto-html-viewer"' +
-                      attr("id", widget.elId("htmlViewer")) +
-                      '></div>');
-                  }
-                });
-              __tag(out,
-                ____________marko_node_modules_marko_layout_put_tag_js,
-                {
-                  "into": "compiled",
-                  "layout": __layoutHelper
-                },
-                function(out) {
-                  __widgetArgs(out, widget.id, "compiledEditor");
-                  __tag(out,
-                    ___app_codemirror_index_js,
-                    {
-                      "mode": "javascript",
-                      "autoResize": true,
-                      "readOnly": true,
-                      "theme": "default",
-                      "code": data.compiledCode
-                    });
-                  _cleanupWidgetArgs(out);
-                });
-            }
-          });
+                      __widgetArgs(out, widget.id, "javaScriptEditor", [
+                        "change",
+                        "handleJavaScriptEditorChange"
+                      ]);
+                      app_codemirror({
+                          mode: "javascript",
+                          theme: "default",
+                          autoResize: false,
+                          code: data.javaScriptCode,
+                          fullscreen: true
+                        }, out);
+                      _cleanupWidgetArgs(out);
 
-        out.w('<div style="clear: both"></div></div>');
-      });
+                      out.w("<div class=\"errors-wrapper align-bottom\">");
+
+                      __widgetArgs(out, widget.id, "javaScriptErrors");
+                      app_marko_try_online_errors({}, out);
+                      _cleanupWidgetArgs(out);
+
+                      out.w("</div></div>");
+                    }
+                  }, out);
+
+                layout_put({
+                    into: "template",
+                    layout: __layoutHelper,
+                    renderBody: function renderBody(out) {
+                      out.w("<div class=\"editor-wrapper\"" +
+                        attr("id", widget.elId("templateWrapper")) +
+                        ">");
+
+                      __widgetArgs(out, widget.id, "templateEditor", [
+                        "change",
+                        "handleTemplateEditorChange"
+                      ]);
+                      app_codemirror({
+                          mode: "htmlmixed",
+                          autoResize: false,
+                          fullscreen: true,
+                          theme: "default",
+                          code: data.templateCode
+                        }, out);
+                      _cleanupWidgetArgs(out);
+
+                      out.w("<div class=\"errors-wrapper align-below\">");
+
+                      __widgetArgs(out, widget.id, "templateErrors");
+                      app_marko_try_online_errors({}, out);
+                      _cleanupWidgetArgs(out);
+
+                      out.w("<div class=\"errors-wrapper\"></div></div></div>");
+                    }
+                  }, out);
+
+                layout_put({
+                    into: "input",
+                    layout: __layoutHelper,
+                    renderBody: function renderBody(out) {
+                      out.w("<div class=\"editor-wrapper\"" +
+                        attr("id", widget.elId("inputWrapper")) +
+                        ">");
+
+                      __widgetArgs(out, widget.id, "inputEditor", [
+                        "change",
+                        "handleInputEditorChange"
+                      ]);
+                      app_codemirror({
+                          mode: "javascript",
+                          theme: "default",
+                          autoResize: false,
+                          fullscreen: true,
+                          code: data.inputCode
+                        }, out);
+                      _cleanupWidgetArgs(out);
+
+                      out.w("<div class=\"errors-wrapper align-below\">");
+
+                      __widgetArgs(out, widget.id, "inputErrors");
+                      app_marko_try_online_errors({}, out);
+                      _cleanupWidgetArgs(out);
+
+                      out.w("</div></div>");
+                    }
+                  }, out);
+
+                layout_put({
+                    into: "css",
+                    layout: __layoutHelper,
+                    renderBody: function renderBody(out) {
+                      out.w("<div>");
+
+                      __widgetArgs(out, widget.id, "cssEditor", [
+                        "change",
+                        "handleCssEditorChange"
+                      ]);
+                      app_codemirror({
+                          mode: "css",
+                          theme: "default",
+                          autoResize: false,
+                          fullscreen: true
+                        }, out);
+                      _cleanupWidgetArgs(out);
+
+                      out.w("</div>");
+                    }
+                  }, out);
+
+                layout_put({
+                    into: "output",
+                    layout: __layoutHelper,
+                    renderBody: function renderBody(out) {
+                      out.w("<div" +
+                        attr("id", widget.elId("outputWrapper")) +
+                        ">");
+
+                      if (!data.inline) {
+                        out.w("<div class=\"output-ctr hide-if-errors\"" +
+                          attr("id", widget.elId("htmlViewer")) +
+                          "></div>");
+                      }
+
+                      out.w("<div class=\"errors-wrapper\">");
+
+                      __widgetArgs(out, widget.id, "renderErrors");
+                      app_marko_try_online_errors({}, out);
+                      _cleanupWidgetArgs(out);
+
+                      out.w("</div></div>");
+                    }
+                  }, out);
+              }
+            }, out);
+
+          out.w("<div style=\"clear: both\"></div></div>");
+        }
+      }, out);
   };
 }
+
 (module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
+
 });
-$rmod.def("/src/components/app-try-marko/index", function(require, exports, module, __filename, __dirname) { /*require('./style.css');*/
+$rmod.def("/src/components/app-try-marko-widgets/index", function(require, exports, module, __filename, __dirname) { /*require('./style.css');*/
 
+var removeClass = require('/$/dom-classes'/*'dom-classes'*/).remove;
+var addClass = require('/$/dom-classes'/*'dom-classes'*/).add;
 var AsyncValue = require('/$/raptor-async/AsyncValue'/*'raptor-async/AsyncValue'*/);
-
+var extend = require('/$/raptor-util/extend'/*'raptor-util/extend'*/);
+var nodePath = require('path-browserify'/*'path'*/);
+var markoWidgets = require('/$/marko-widgets'/*'marko-widgets'*/);
 var compilerAsyncValue = null;
+var isObjectEmpty = require('/$/raptor-util/isObjectEmpty'/*'raptor-util/isObjectEmpty'*/);
+
+var TransformHelper = require('/$/marko-widgets/taglib/TransformHelper'/*'marko-widgets/taglib/TransformHelper'*/);
+TransformHelper.prototype.getDefaultWidgetModule = function() {
+    var dirname = this.dirname;
+
+    if (this.dirname === '/try-online') {
+        return '/try-online/index';
+    } else {
+
+        try {
+            require.resolve(nodePath.join(dirname, 'widget'));
+            return './widget';
+        } catch(e) {
+            try {
+                require.resolve(nodePath.join(dirname, 'index'));
+                return './index';
+            } catch(e) {
+                return null;
+            }
+        }
+    }
+};
 
 function loadCompiler(callback) {
     if (!compilerAsyncValue) {
@@ -20640,7 +21754,7 @@ function loadCompiler(callback) {
 
         require('raptor-loader'/*'raptor-loader'*/).async("_0", function() {
             var compiler = require('/$/marko/compiler'/*'marko/compiler'*/);
-            compiler.taglibs.registerTaglib(require.resolve('./test-taglib/marko-taglib.json'));
+            compiler.taglibs.registerTaglib(require.resolve('/$/marko-widgets/marko'/*'marko-widgets/marko.json'*/));
             compilerAsyncValue.resolve(compiler);
         });
     }
@@ -20648,69 +21762,40 @@ function loadCompiler(callback) {
     compilerAsyncValue.done(callback);
 }
 
-function compileAndLoadTemplate(templateSrc, path, compileOptions, callback) {
-    loadCompiler(function(err, compiler) {
-        if (err) {
-            throw err;
-        }
-
-        try {
-            compiler.compile(templateSrc, path, compileOptions, function(err, compiledSrc) {
-                if (err) {
-                    return callback(err);
-                }
-
-                var wrappedSource = '(function(require, exports, module, __filename, __dirname) { ' + compiledSrc + ' })';
-                var factoryFunc = eval(wrappedSource);
-                var templateExports = {};
-                var templateModule = {
-                    require: require,
-                    exports: templateExports,
-                    id: '/template.marko'
-                };
-
-                factoryFunc(require, templateExports, templateModule, '/template.marko', '/');
-                callback(null, templateModule.exports, compiledSrc);
-            });
-        } catch(e) {
-            if (window.console) {
-                console.error(e);
-            }
-
-            callback(e);
-        }
-    });
-}
-
 module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent({
     template: require('./template.marko'),
     getWidgetConfig: function(input) {
-        return {
-            inline: input.inline === true
-        };
+        return {};
     },
     getTemplateData: function(state, input) {
-        var templateNav = input['template-nav'];
-        var dataCode = input.dataCode;
+        var javaScriptCode = input.javaScriptCode;
         var templateCode = input.templateCode;
-        var compiledCode = input.compiledCode;
-        var htmlCode = input.htmlCode;
+        var inputCode = input.inputCode;
+        var cssCode = input.cssCode;
 
         return {
-            templateNav: templateNav,
-            dataCode: dataCode,
+            javaScriptCode: javaScriptCode,
             templateCode: templateCode,
-            compiledCode: compiledCode,
-            htmlCode: htmlCode,
-            inline: input.inline === true
+            inputCode: inputCode,
+            cssCode: cssCode
         };
     },
 
     init: function(widgetConfig) {
-        this.autoRender = true;
-        this.compileRequired = true;
         this.renderRequired = true;
-        this.inline = widgetConfig.inline === true;
+        this.loadJavaScriptRequired = true;
+        this.loadTemplateRequired = true;
+        this.loadCssRequired = true;
+        this.loadInputRequired = true;
+        this.renderRequired = true;
+        this.destroyRequired = false;
+
+        this.newInput = false;
+
+        this.loadedTemplate = null;
+        this.loadedComponent = null;
+        this.loadedInput = {};
+        this.renderedWidget = null;
 
         this.editorsState = {
             data: null,
@@ -20723,38 +21808,53 @@ module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent(
     },
 
     setCode: function(options) {
+        var javaScriptCode = options.javaScript;
+        var templateCode = options.template;
+        var inputCode = options.input;
+        var cssCode = options.css;
 
-        var showOptions = options.showOptions === true;
-
-        if (showOptions) {
-            this.getWidget('optionsEditor').show();
-        } else {
-            this.getWidget('optionsEditor').hide();
-        }
-
-        var template = options.template;
-        var data = options.data;
-        var compilerOptions = options.compilerOptions;
-        var autoFormat = options.autoFormat === true;
-
-        this.getWidget('outputEditor').setAutoFormat(autoFormat);
         this.halt = true;
-        this.getWidget('dataEditor').setValue(data || '{\n}');
 
-        if (compilerOptions) {
-            this.getWidget('optionsEditor').setValue(compilerOptions);
-        }
-
-        this.compilerOptions = compilerOptions;
-
-        this.getWidget('templateEditor').setValue(template);
+        this.getWidget('javaScriptEditor').setValue(javaScriptCode + '\n\n\n');
+        this.getWidget('inputEditor').setValue(inputCode || '{\n}');
+        this.getWidget('templateEditor').setValue(templateCode);
+        this.getWidget('cssEditor').setValue(cssCode || '');
 
         this.halt = false;
 
         this.update();
     },
 
+    loadModule: function(src, path) {
+        var wrappedSource = '(function(require, exports, module, __filename, __dirname) { ' + src + ' })';
+        var factoryFunc = eval(wrappedSource);
+        var newExports = {};
+        var newModule = {
+            require: require,
+            exports: newExports,
+            id: path
+        };
+
+        var self = this;
+
+        function requireProxy(path) {
+            if (path === './template.marko') {
+                return self.loadedTemplate;
+            } else if (path === '/try-online/index') {
+                return self.loadedComponent;
+            } else {
+                return require(path);
+            }
+        }
+
+        extend(requireProxy, require);
+
+        factoryFunc(requireProxy, newExports, newModule, path, '/');
+        return newModule.exports;
+    },
+
     handleEditorException: function(errorsWidget, e) {
+        console.log('Error: ', (e.stack || e));
         var errors = e.errors;
 
         if (!errors) {
@@ -20764,96 +21864,116 @@ module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent(
         errorsWidget.addErrors(errors);
     },
 
-    compileTemplate: function() {
-        if (!this.compileRequired) {
-            return;
+    loadTemplate: function(callback) {
+        if (!this.loadTemplateRequired) {
+            return callback();
         }
 
-        this.getWidget('templateErrors').clearErrors();
-        var templateSrc = this.getWidget('templateEditor').getValue();
-        var pseudoPath = '/template.marko';
+        this.loadTemplateRequired = false;
 
-        var compileOptions = this.compilerOptions ?
-            this.editorsState.optionsData :
-            null;
+        removeClass(this.getEl('templateWrapper'), 'has-errors');
+        this.getWidget('templateErrors').clearErrors();
+
+
+        var templateSrc = this.getWidget('templateEditor').getValue();
+
+        var pseudoPath = '/try-online/template.marko';
 
         var self = this;
 
-        compileAndLoadTemplate(
-            templateSrc,
-            pseudoPath,
-            compileOptions,
-            function(err, loadedTemplate, compiledSrc) {
-                if (err) {
-                    self.handleEditorException(self.getWidget('templateErrors'), err);
-                    return;
-                }
+        loadCompiler(function(err, compiler) {
+            if (err) {
+                self.handleEditorException(self.getWidget('templateErrors'), err);
+                return callback();
+            }
 
-                self.loadedTemplate = loadedTemplate;
+            try {
+                compiler.compile(templateSrc, pseudoPath, null, function(err, compiledSrc) {
+                    if (err) {
+                        addClass(self.getEl('templateWrapper'), 'has-errors');
+                        self.handleEditorException(self.getWidget('templateErrors'), err);
+                        return;
+                    }
 
-                self.getWidget('compiledEditor').setValue(compiledSrc);
-                self.compileRequired = false;
-            });
+                    var loadedTemplate = self.loadModule(compiledSrc, pseudoPath);
+                    if (self.loadedTemplate) {
+                        extend(self.loadedTemplate, loadedTemplate);
+                    } else {
+                        self.loadedTemplate = loadedTemplate;
+                    }
+
+                    self.loadTemplateRequired = false;
+                    return callback();
+                });
+            } catch(e) {
+                self.handleEditorException(self.getWidget('templateErrors'), e);
+                addClass(self.getEl('templateWrapper'), 'has-errors');
+                return callback();
+            }
+        });
     },
 
-    renderTemplate: function() {
-        if (!this.renderRequired) {
+    loadJavaScript: function() {
+        if (!this.loadJavaScriptRequired) {
             return;
         }
 
-        var viewModel = this.editorsState.templateData;
-        var self = this;
+        this.loadJavaScriptRequired = false;
+
+        removeClass(this.getEl('javaScriptWrapper'), 'has-errors');
+        this.getWidget('javaScriptErrors').clearErrors();
+
+        var javaScriptSrc = this.getWidget('javaScriptEditor').getValue();
 
         try {
-            this.loadedTemplate.render(viewModel, function(err, html) {
-                if (err) {
-                    this.handleEditorException(self.getWidget('templateErrors'), err);
-                    self.getEl('htmlViewer').innerHTML = '';
-                    return;
-                }
-
-                self.getWidget('outputEditor').setValue(html);
-                self.updateHTMLViewer(html);
-            });
-        } catch(err) {
-            this.handleEditorException(this.getWidget('templateErrors'), err);
-            this.updateHTMLViewer('');
+            this.loadedComponent = this.loadModule(javaScriptSrc, '/try-online/index.js');
+            markoWidgets.registerWidget("/try-online/index", this.loadedComponent);
+            return this.loadedComponent;
+        } catch(e) {
+            this.handleEditorException(this.getWidget('javaScriptErrors'), e);
+            addClass(this.getEl('javaScriptWrapper'), 'has-errors');
+            return null;
         }
-
-        this.renderRequired = false;
     },
 
-    updateHTMLViewer: function(code) {
-        if (this.inline) {
-            return;
-        }
-        this.getEl('htmlViewer').innerHTML = code;
-    },
-
-    updateJSON: function(targetProp, modifiedProp, editor, errors) {
-        if (!this.editorsState[modifiedProp]) {
+    loadInput: function() {
+        if (!this.loadInputRequired) {
             return;
         }
 
-        this.editorsState[targetProp] = null;
-        errors.clearErrors();
+        this.loadInputRequired = false;
 
-        var jsonData = editor.getValue();
+        removeClass(this.getEl('inputWrapper'), 'has-errors');
+        this.getWidget('inputErrors').clearErrors();
 
-        var data;
+        var inputSrc = this.getWidget('inputEditor').getValue().trim() || {};
+        this.loadedInput = null;
 
-        if (jsonData.trim() === '') {
-            data = {};
+        try {
+            this.loadedInput = eval('(' + inputSrc + ')');
+        } catch(e) {
+            this.handleEditorException(this.getWidget('inputErrors'), e);
+            addClass(this.getEl('inputWrapper'), 'has-errors');
+            return null;
+        }
+    },
+
+    loadCss: function() {
+        if (!this.loadCssRequired) {
+            return;
+        }
+
+        this.loadCssRequired = false;
+
+        if (this.loadedCss) {
+            this.loadedCss.innerHTML = '';
         } else {
-            try {
-                data = eval("(" + jsonData + ")");
-                this.editorsState[targetProp] = data;
-            } catch(e) {
-                this.handleEditorException(errors, e);
-            }
+            this.loadedCss = document.createElement('style');
+            document.body.appendChild(this.loadedCss);
         }
 
-        this.editorsState[modifiedProp] = false;
+        var cssText = this.getWidget('cssEditor').getValue().trim();
+        this.loadedCss.appendChild(document.createTextNode(cssText));
     },
 
     update: function() {
@@ -20862,165 +21982,178 @@ module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent(
         }
         var self = this;
 
-        loadCompiler(function() {
-            if (self.editorsState.dataModified) {
-                self.getWidget('templateErrors').clearErrors();
+        // Load the template first since it may be asynchronous (we asynchronously load the compiler)
+        this.loadTemplate(function(err, loadedTemplate) {
+            // Now load the UI component from the provided JavaScript module
+            self.loadJavaScript();
+            self.loadInput();
+            self.loadCss();
+            self.render();
+        });
+    },
+
+    render: function() {
+        if (!this.renderRequired) {
+            return;
+        }
+
+        if (!this.loadedTemplate || !this.loadedComponent || !this.loadedInput) {
+            // We can only render if everything loaded successfully
+            return;
+        }
+
+        this.getWidget('renderErrors').clearErrors();
+
+        this.renderRequired = false;
+
+        if (this.renderedWidget && this.destroyRequired) {
+            this.renderedWidget.destroy();
+            this.renderedWidget = null;
+        }
+
+        this.destroyRequired = false;
+        var newInput = this.newInput === true;
+        this.newInput = false;
+
+        removeClass(this.getEl('outputWrapper'), 'has-errors');
+
+
+
+        try {
+            if (this.renderedWidget) {
+                if (newInput || isObjectEmpty(this.renderedWidget.state)) {
+                    this.renderedWidget.setProps(this.loadedInput);
+                } else {
+                    this.renderedWidget.rerender();
+                }
+
+            } else {
+                this.renderedWidget = this.loadedComponent.render(this.loadedInput)
+                    .appendTo(this.getEl('htmlViewer'))
+                    .getWidget();
+            }
+        } catch(e) {
+            if (this.renderedWidget) {
+                this.renderedWidget.destroy();
+                this.renderedWidget = null;
             }
 
-            self.updateJSON('optionsData', 'optionsModified', self.getWidget('optionsEditor'),self.getWidget('optionsErrors'));
-            self.compileTemplate();
-            self.updateJSON('templateData', 'dataModified', self.getWidget('dataEditor'), self.getWidget('dataErrors'));
+            this.getEl('htmlViewer').innerHTML = '';
 
-            self.renderTemplate();
-        });
+            addClass(this.getEl('outputWrapper'), 'has-errors');
+            this.handleEditorException(this.getWidget('renderErrors'), e);
+        }
     },
 
     ///////////////////////////
     // Event handler methods //
     ///////////////////////////
+    handleJavaScriptEditorChange: function() {
+        this.destroyRequired = true;
+        this.renderRequired = true;
+        this.loadJavaScriptRequired = true;
+        this.update();
+    },
+
     handleTemplateEditorChange: function() {
-        this.compileRequired = true;
         this.renderRequired = true;
-
-        if (this.autoRender) {
-            this.update();
-        }
+        this.loadTemplateRequired = true;
+        this.update();
     },
 
-    handleDataEditorChange: function() {
-        this.editorsState.dataModified = true;
+    handleInputEditorChange: function() {
         this.renderRequired = true;
-
-        if (this.autoRender) {
-            this.update();
-        }
+        this.loadInputRequired = true;
+        this.newInput = true;
+        this.update();
     },
 
-    handleOptionsEditorChange: function() {
-        this.editorsState.optionsModified = true;
-        this.renderRequired = true;
-        this.compileRequired = true;
-
-        if (this.autoRender) {
-            this.update();
-        }
+    handleCssEditorChange: function() {
+        this.loadCssRequired = true;
+        this.update();
     }
 });
 });
-$rmod.def("/src/components/app-try-marko-app/template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
-  var str = __helpers.s,
-      empty = __helpers.e,
-      notEmpty = __helpers.ne,
+$rmod.dep("/$/marko", "async-writer", "1.4.1");
+$rmod.dep("/$/marko", "events", "1.1.0");
+$rmod.dep("/$/marko", "raptor-util", "1.0.10");
+$rmod.def("/src/components/app-try-marko-widgets-app/template.marko", function(require, exports, module, __filename, __dirname) { function create(__helpers) {
+  var __widgetType = {
+          name: "/src/components/app-try-marko-widgets-app",
+          def: function() {
+            return require("./");
+          }
+        },
       __markoWidgets = require('/$/marko-widgets'/*"marko-widgets"*/),
-      _widgetAttrs = __markoWidgets.attrs,
-      __getDynamicClientWidgetPath = require('/$/marko-widgets/taglib/helpers/getDynamicClientWidgetPath-browser'/*"marko-widgets/taglib/helpers/getDynamicClientWidgetPath"*/),
-      __ = "/src/components/app-try-marko-app",
+      __widgetAttrs = __markoWidgets.attrs,
       __widgetArgs = require('/$/marko-widgets/taglib/helpers/widgetArgs'/*"marko-widgets/taglib/helpers/widgetArgs"*/),
       _cleanupWidgetArgs = __widgetArgs.cleanup,
-      __renderer = __helpers.r,
-      ____________marko_widgets_taglib_widget_tag_js = __renderer(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
-      __tag = __helpers.t,
+      str = __helpers.s,
+      empty = __helpers.e,
+      notEmpty = __helpers.ne,
+      escapeXml = __helpers.x,
+      __loadTag = __helpers.t,
+      w_widget = __loadTag(require('/$/marko-widgets/taglib/widget-tag'/*"marko-widgets/taglib/widget-tag"*/)),
       attr = __helpers.a,
       attrs = __helpers.as,
       forEach = __helpers.f,
-      escapeXml = __helpers.x,
-      ___app_try_marko_index_js = __renderer(require("../app-try-marko"));
-
-  function __registerWidget() {
-    if (typeof window != "undefined") {
-      __markoWidgets.registerWidget(__, require("./"));
-    }
-  }
+      escapeXmlAttr = __helpers.xa,
+      app_try_marko_widgets = __loadTag(require("../app-try-marko-widgets"), 0, 0, 1);
 
   return function render(data, out) {
-    if (__registerWidget) {
-      __registerWidget();
-      __registerWidget = null;
-    }
-    
-    __tag(out,
-      ____________marko_widgets_taglib_widget_tag_js,
-      {
-        "module": __,
-        "_cfg": data.widgetConfig,
-        "_state": data.widgetState,
-        "_props": data.widgetProps,
-        "_body": data.widgetBody
-      },
-      function(out, widget) {
-        out.w('<div class="mto"' +
-          attr("id", widget.elId()) +
-          attrs(_widgetAttrs(widget)) +
-          '><div class="mto-categories">');
+    w_widget({
+        type: __widgetType,
+        _cfg: data.widgetConfig,
+        _state: data.widgetState,
+        _props: data.widgetProps,
+        _body: data.widgetBody,
+        renderBody: function renderBody(out, widget) {
+          out.w("<div class=\"mto\"" +
+            attr("id", widget.id) +
+            attrs(__widgetAttrs(widget)) +
+            "><div class=\"mto-categories\">");
 
-        forEach(data.samples.categories, function(category) {
-          out.w('<button type="button" class="mto-btn mto-category-btn"' +
-            attr("data-cat-id", category.id) +
-            attr("id", widget.elId("categoryButton"+category.id)) +
-            attr("data-w-onclick", "handleCategoryClick"+"|"+widget.id) +
-            '>' +
-            escapeXml(category.name) +
-            '</button>');
-        });
+          forEach(data.samples.categories, function(category) {
+            out.w("<div><h2>" +
+              escapeXml(category.name) +
+              "</h2><div class=\"category-samples\">");
 
-        out.w('<a href="/"><img src="/images/logo.png" width="100" height="100" alt="Marko"></a></div><div class="try-marko-container">');
-        __widgetArgs(out, widget.id, "tryMarko");
-        __tag(out,
-          ___app_try_marko_index_js,
-          {},
-          function(out, __nestedTagInput0) {
-            __tag(out,
-              null,
-              {},
-              function(out) {
-                out.w('<div class="mto-sample-navs"' +
-                  attr("id", widget.elId("sampleNavs")) +
-                  '>');
+            forEach(category.samples, function(sample) {
+              out.w("<button type=\"button\"" +
+                attr("data-sample-id", sample.id) +
+                " class=\"mto-btn mto-sample-btn\"" +
+                attr("id", widget.elId("sampleButton" + sample.id)) +
+                " data-w-onclick=\"handleSampleButtonClick|" +
+                escapeXmlAttr(widget.id) +
+                "\">" +
+                escapeXml(sample.name) +
+                "</button>");
+            });
 
-                forEach(data.samples.categories, function(category) {
-                  out.w('<div class="mto-sample-nav"' +
-                    attr("data-cat-id", category.id) +
-                    attr("id", widget.elId("categoryNav"+category.id)) +
-                    '>');
+            out.w("</div></div>");
+          });
 
-                  forEach(category.samples, function(sample) {
-                    out.w('<button type="button"' +
-                      attr("data-sample-id", sample.id) +
-                      ' class="mto-btn mto-sample-btn"' +
-                      attr("id", widget.elId("sampleButton"+sample.id)) +
-                      attr("data-w-onclick", "handleSampleButtonClick"+"|"+widget.id) +
-                      '>' +
-                      escapeXml(sample.name) +
-                      '</button>');
-                  });
+          out.w("<a href=\"/\"><img src=\"/images/logo.png\" width=\"100\" height=\"100\" alt=\"Marko\"></a></div><div class=\"right-col\"><div class=\"try-container\">");
 
-                  out.w('</div>');
-                });
+          __widgetArgs(out, widget.id, "tryMarkoWidgets");
+          app_try_marko_widgets({}, out, 0);
+          _cleanupWidgetArgs(out);
 
-                out.w('</div>');
-              },
-              { targetProperty: "template-nav", parent: __nestedTagInput0 });
-          },
-          { hasNestedTags: 1 });
-        _cleanupWidgetArgs(out);
-
-        out.w('</div></div>');
-      });
+          out.w("</div></div></div>");
+        }
+      }, out);
   };
 }
+
 (module.exports = require('/$/marko'/*"marko"*/).c(__filename)).c(create);
+
 });
-$rmod.def("/src/components/app-try-marko-app/index", function(require, exports, module, __filename, __dirname) { /*require('./style.css');*/
+$rmod.def("/src/components/app-try-marko-widgets-app/index", function(require, exports, module, __filename, __dirname) { /*require('./style.css');*/
 
 var removeClass = require('/$/dom-classes'/*'dom-classes'*/).remove;
 var addClass = require('/$/dom-classes'/*'dom-classes'*/).add;
 
 var samples = require('./samples-loader').load();
-
-if (typeof window !== 'undefined') {
-    window.testTemplate = require('./include-target.marko');
-    window.layoutTemplate = require('./layout-use-target.marko');
-}
 
 function getUniqueSampleName(category, sample) {
     var catName = category.name;
@@ -21068,15 +22201,16 @@ module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent(
         });
 
         if (document.location.hash) {
-            var sample = samplesByName[document.location.hash.substring(1)];
+            var sampleName = document.location.hash.substring(1);
+            var sample = samplesByName[sampleName];
             if (sample) {
                 this.showSample(sample.id);
             } else {
-                this.showCategory(samples.categories[0].id);
+                this.showSample(samples.categories[0].samples[0].id);
             }
         } else {
             this.changeHash = false;
-            this.showCategory(samples.categories[0].id);
+            this.showSample(samples.categories[0].samples[0].id);
             this.changeHash = true;
         }
 
@@ -21092,6 +22226,8 @@ module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent(
 
 
     showCategory: function(categoryId) {
+        return;
+
         var category = this.categoriesById[categoryId];
         if (!category || category.samples.length === 0) {
             return;
@@ -21113,52 +22249,49 @@ module.exports = require('/$/marko-widgets'/*'marko-widgets'*/).defineComponent(
 
         this.currentSample = sample;
 
-        var categoryId = sample.category.id;
-
-        if (this.currentCategoryId !== categoryId) {
-            if (this.currentCategoryId != null) {
-                removeClass(this.getCategoryButtonEl(this.currentCategoryId), 'mto-btn-active');
-                removeClass(this.getCategoryNavEl(this.currentCategoryId), 'mto-sample-nav-active');
-            }
-
-            this.currentCategoryId = categoryId;
-
-            addClass(this.getCategoryButtonEl(this.currentCategoryId), 'mto-btn-active');
-            addClass(this.getCategoryNavEl(this.currentCategoryId), 'mto-sample-nav-active');
-
-            // Select the first sample
-            var category = this.categoriesById[categoryId];
-
-            if (sampleId == null) {
-                if (category.samples.length) {
-                    sampleId = category.samples[0].id;
-                }
-            }
-
-
-            if (category.samples.length === 1) {
-                addClass(this.getEl('sampleNavs'), 'hidden');
-            } else {
-                removeClass(this.getEl('sampleNavs'), 'hidden');
-            }
-        }
+        // var categoryId = sample.category.id;
+        //
+        // if (this.currentCategoryId !== categoryId) {
+        //     if (this.currentCategoryId != null) {
+        //         removeClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
+        //         removeClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
+        //     }
+        //
+        //     this.currentCategoryId = categoryId;
+        //
+        //     addClass(this.getCategoryButtonEl(this.currentCategoryId), 'active');
+        //     addClass(this.getCategoryNavEl(this.currentCategoryId), 'active');
+        //
+        //     // Select the first sample
+        //     var category = this.categoriesById[categoryId];
+        //
+        //     if (sampleId == null) {
+        //         if (category.samples.length) {
+        //             sampleId = category.samples[0].id;
+        //         }
+        //     }
+        //
+        //
+        //     // if (category.samples.length === 1) {
+        //     //     addClass(this.getEl('sampleNavs'), 'hidden');
+        //     // } else {
+        //     //     removeClass(this.getEl('sampleNavs'), 'hidden');
+        //     // }
+        // }
 
         if (this.currentSampleId != null) {
-            removeClass(this.getSampleButtonEl(this.currentSampleId), 'mto-btn-active');
+            removeClass(this.getSampleButtonEl(this.currentSampleId), 'active');
         }
 
         this.currentSampleId = sampleId;
 
-        addClass(this.getSampleButtonEl(this.currentSampleId), 'mto-btn-active');
+        addClass(this.getSampleButtonEl(this.currentSampleId), 'active');
 
-        var compilerOptions = sample.options;
-
-        this.getWidget('tryMarko').setCode({
-            template: sample.template,
-            data: sample.data,
-            options: sample.options,
-            autoFormat: sample.autoFormat === true,
-            compilerOptions: compilerOptions
+        this.getWidget('tryMarkoWidgets').setCode({
+            javaScript: sample.javaScriptCode,
+            template: sample.templateCode,
+            input: sample.inputCode,
+            css: sample.cssCode
         });
 
         if (this.changeHash !== false) {

@@ -4,8 +4,18 @@ require('./style.css');
 var removeClass = require('dom-classes').remove;
 var addClass = require('dom-classes').add;
 
-var codeMirrorFactory = typeof window !== 'undefined' ? require('codemirror') : null;
+var codeMirrorFactory;
+
 var html = require('html');
+
+if (typeof window !== 'undefined') {
+    codeMirrorFactory = require('codemirror');
+    var codemirrorAtomModes = require('codemirror-atom-modes');
+
+    codemirrorAtomModes.registerGrammar(require('src/atom-grammars/css.cson'), codeMirrorFactory);
+    codemirrorAtomModes.registerGrammar(require('src/atom-grammars/javascript.cson'), codeMirrorFactory);
+    codemirrorAtomModes.registerGrammar(require('src/atom-grammars/marko.cson'), codeMirrorFactory);
+}
 
 module.exports = require('marko-widgets').defineComponent({
     template: require('./template.marko'),
@@ -16,9 +26,15 @@ module.exports = require('marko-widgets').defineComponent({
     },
 
     getWidgetConfig: function(input) {
+        var mode = input.mode;
+
+        if (mode === 'marko') {
+            mode = 'Marko';
+        }
+
         return {
             code: input.code,
-            mode: input.mode,
+            mode: mode,
             autoResize: input.autoResize,
             readOnly: input.readOnly === true,
             autoFormat: input.autoFormat === true,

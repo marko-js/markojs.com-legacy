@@ -1,15 +1,14 @@
-<lasso-page package-path="./browser.json" />
+lasso-page package-path="./browser.json" flags=data.lassoFlags
+layout-use("src/layouts/default/template.marko") [ site=data.site
+    active-section="docs" ]
 
-<layout-use template="src/layouts/default/template.marko" site="${data.site}" active-section="docs">
-    <layout-put into="title">$data.title | $data.projectTitle</layout-put>
-    <layout-put into="body">
-        <div class="container">
-            <app-docs-nav active-link="${data.activeLink}"/>
-            <main>
-                <h1 class="page-title">$data.title <span class="subtitle">// ${data.projectTitle}</span></h1>
-
-                $!{data.html}
-            </main>
-        </div>
-    </layout-put>
-</layout-use>
+    layout-put into="title"
+        - ${data.title} | ${data.projectTitle}
+    layout-put into="body"
+        div class="container"
+            app-docs-nav active-link=data.activeLink
+            main
+                h1 class="page-title"
+                    - ${data.title}
+                    span class="subtitle" - &nbsp;// ${data.projectTitle}
+                - $!{data.html}

@@ -1,29 +1,22 @@
-<header id="header" w-bind>
+header id="header" w-bind
+    div class="container"
+        div id="logo"
+            a href="/" if(data.site.logo)
+                img src="/images/logo-header.png" alt=data.site.title
+        nav role="navigation" id="nav" class="mobile-hidden"
+            ul class="main-navigation"
+                li for(navLink in data.site.navLinks)
+                    a [ href=navLink.url
+                        class=(navLink.name === data.activeSection ? "active" : "") ]
 
-    <div class="container">
-        <div id="logo">
-            <a href="/" if="data.site.logo">
-                <img src="/images/logo-header.png" alt="${data.site.title}"/>
-            </a>
-        </div>
+                        - ${navLink.title}
+                li class="nav-search"
+                    i class="fa fa-search" w-onclick="handleToggleSearchClick"
+                    form [ action="https://google.com/search" method="get"
+                        class="search-form" ]
 
-        <nav role="navigation" id="nav" class="mobile-hidden">
-            <ul class="main-navigation">
-                <li for="navLink in data.site.navLinks">
-                    <a href="${navLink.url}" class="{?navLink.name === data.activeSection;active}">
-                        ${navLink.title}
-                    </a>
-                </li>
-                <li class="nav-search">
-                    <i class="fa fa-search" w-onclick="handleToggleSearchClick"></i>
-                    <form action="https://google.com/search" method="get" class="search-form">
-                        <input type="hidden" name="as_sitesearch" value="${data.site.searchUrl || data.site.url}">
-                        <input type="text" name="q" results="0" placeholder="" class="search-input">
-                    </form>
-                </li>
-            </ul>
-        </nav>
-
-        <div style="clear: both"/>
-    </div>
-</header>
+                        input [ type="hidden" name="as_sitesearch"
+                            value=(data.site.searchUrl || data.site.url) ]
+                        input [ type="text" name="q" results="0" placeholder
+                            class="search-input" ]
+        div style="clear: both"

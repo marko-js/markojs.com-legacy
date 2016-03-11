@@ -1,102 +1,56 @@
-<var name="activeLink" value="data.activeLink"/>
-
-<def function="navLink(linkName, href, title)">
-    <li>
-        <a href="${href}" class="{?activeLink === linkName;active}">
-            ${title}
-        </a>
-    </li>
-</def>
-
-<aside class="docs-nav">
-    <section>
-        <h1>Marko</h1>
-        <ul>
-            <invoke function="navLink"
-                linkName="marko/overview"
-                href="/docs/"
-                title="Overview"/>
-
-            <invoke function="navLink"
-                linkName="marko/get-started"
-                href="/docs/marko/get-started/"
-                title="Get Started"/>
-
-            <invoke function="navLink"
-                linkName="marko/javascript-api"
-                href="/docs/marko/javascript-api/"
-                title="JavaScript API"/>
-
-            <invoke function="navLink"
-                linkName="marko/language-guide"
-                href="/docs/marko/language-guide/"
-                title="Language Guide"/>
-
-            <invoke function="navLink"
-                linkName="marko/custom-taglibs"
-                href="/docs/marko/custom-taglibs/"
-                title="Custom Taglibs"/>
-
-            <invoke function="navLink"
-                linkName="marko/compiler"
-                href="/docs/marko/compiler/"
-                title="Compiler"/>
-
-            <invoke function="navLink"
-                linkName="marko/faq"
-                href="/docs/marko/faq/"
-                title="FAQ"/>
-
-            <invoke function="navLink"
-                linkName="marko/additional-resources"
+var activeLink=data.activeLink
+macro navLink(linkName, href, title)
+    li
+        a href=href class=(activeLink === linkName ? "active" : "")
+            - ${title}
+aside class="docs-nav"
+    section
+        h1
+            - Marko
+        ul
+            navLink linkName="marko/overview" href="/docs/" title="Overview"
+            navLink [ linkName="marko/get-started" href="/docs/marko/get-started/"
+                title="Get Started" ]
+            navLink [ linkName="marko/javascript-api"
+                href="/docs/marko/javascript-api/" title="JavaScript API" ]
+            navLink [ linkName="marko/language-guide"
+                href="/docs/marko/language-guide/" title="Language Guide" ]
+            navLink [ linkName="marko/custom-taglibs"
+                href="/docs/marko/custom-taglibs/" title="Custom Taglibs" ]
+            navLink [ linkName="marko/compiler" href="/docs/marko/compiler/"
+                title="Compiler" ]
+            navLink linkName="marko/faq" href="/docs/marko/faq/" title="FAQ"
+            navLink [ linkName="marko/additional-resources"
                 href="/docs/marko/additional-resources/"
-                title="Additional Resources"/>
-        </ul>
-        <div class="footer">
-            <a class="try-online" href="http://markojs.com/try-online/" target="_blank">
-                Try Online! <lasso-img src="src/assets/new-window.svg" width="16" height="16"/>
-            </a>
-        </div>
-    </section>
-    <section>
-        <h1>Marko Widgets</h1>
+                title="Additional Resources" ]
+        div class="footer"
+            a [ class="try-online" href="/try-online/"
+                target="_blank" ]
 
-        <ul>
-            <invoke function="navLink"
-                linkName="marko-widgets/overview"
-                href="/docs/marko-widgets/"
-                title="Overview"/>
-
-            <invoke function="navLink"
-                linkName="marko-widgets/get-started"
-                href="/docs/marko-widgets/get-started/"
-                title="Get Started"/>
-
-            <invoke function="navLink"
-                linkName="marko-widgets/component-lifecycle"
+                - Try Online!
+                lasso-img src="src/assets/new-window.svg" width="16" height="16"
+    section
+        h1
+            - Marko Widgets
+        ul
+            navLink [ linkName="marko-widgets/overview" href="/docs/marko-widgets/"
+                title="Overview" ]
+            navLink [ linkName="marko-widgets/get-started"
+                href="/docs/marko-widgets/get-started/" title="Get Started" ]
+            navLink [ linkName="marko-widgets/component-lifecycle"
                 href="/docs/marko-widgets/component-lifecycle/"
-                title="Component Lifecycle"/>
-
-            <invoke function="navLink"
-                linkName="marko-widgets/javascript-api"
-                href="/docs/marko-widgets/javascript-api/"
-                title="JavaScript API"/>
-
-            <invoke function="navLink"
-                linkName="marko-widgets/faq"
-                href="/docs/marko-widgets/faq/"
-                title="FAQ"/>
-
-            <invoke function="navLink"
-                linkName="marko-widgets/additional-resources"
+                title="Component Lifecycle" ]
+            navLink [ linkName="marko-widgets/javascript-api"
+                href="/docs/marko-widgets/javascript-api/" title="JavaScript API" ]
+            navLink [ linkName="marko-widgets/faq" href="/docs/marko-widgets/faq/"
+                title="FAQ" ]
+            navLink [ linkName="marko-widgets/additional-resources"
                 href="/docs/marko-widgets/additional-resources/"
-                title="Additional Resources"/>
-        </ul>
+                title="Additional Resources" ]
+        div class="footer"
+            a [ class="try-online"
+                href="/marko-widgets/try-online/"
+                target="_blank" ]
 
-        <div class="footer">
-            <a class="try-online" href="http://markojs.com/marko-widgets/try-online/" target="_blank">
-                Try Online! <lasso-img src="src/assets/new-window.svg" width="16" height="16"/>
-            </a>
-        </div>
-    </section>
-</aside>
+                - Try Online!
+                lasso-img src="src/assets/new-window.svg" width="16" height="16"

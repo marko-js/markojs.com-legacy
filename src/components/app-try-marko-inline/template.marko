@@ -1,9 +1,5 @@
-<div class="app-try-marko-inline">
-    <app-try-marko inline="true"
-        template-code="${data.templateCode}"
-        data-code="${data.dataCode}"
-        html-code="${data.htmlCode}"
-        compiled-code="${data.compiledCode}"/>
-
-    <div style="clear: both"/>
-</div>
+div class="app-try-marko-inline"
+    app-try-marko [ inline=true template-code=data.templateCode
+        data-code=data.dataCode html-code=data.htmlCode
+        compiled-code=data.compiledCode ]
+    div style="clear: both"

@@ -26,7 +26,10 @@ lasso.configure({
         'lasso-marko' ,
 
         // Enable LESS stylesheets
-        'lasso-less'
+        'lasso-less',
+
+        // Allow CSON to be compiled to JavaScript
+        'lasso-cson'
     ],
 
     // Directory where generated JS and CSS bundles are written

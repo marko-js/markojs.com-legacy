@@ -1,17 +1,18 @@
 <!-- Simple variables: -->
-<p>
-    Hello $data.name!
+p
+    ---
+    Hello ${data.name}!
     You have ${data.count} new messages.
-</p>
-
+    ---
 <!-- JavaScript expressions: -->
-<p>
+p
+    ---
     Hello ${data.name.toUpperCase()}!
-    You have $data.count new messages.
-</p>
-
+    You have ${data.count} new messages.
+    ---
 <!-- Variables/expressions inside JavaScript strings: -->
-<p>${"Hello $data.name".toUpperCase()}</p>
-
+p
+    - ${("Hello "+data.name).toUpperCase()}
 <!-- Mind blown: -->
-<p>${"Hello and ${'Welcome $data.name!'}".toUpperCase()}</p>
+p
+    - ${("Hello and "+('Welcome '+data.name+'!')).toUpperCase()}

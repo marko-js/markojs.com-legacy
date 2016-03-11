@@ -3,6 +3,10 @@
         "src/global-style/browser.json",
         "src/layouts/default/browser.json",
         "src/components/app-docs-nav/browser.json",
-        "./style.css"
+        "./style.css",
+        {
+            "if-flag": "presentation",
+            "path": "./style-presentation.css"
+        }
     ]
 }

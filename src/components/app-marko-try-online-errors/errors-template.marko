@@ -1,6 +1,6 @@
-<div class="errors">
-    <div class="error" for="error in data.errors">
-        <span class="icon">✘</span>
-        <pre class="message">$error.message</pre>
-    </div>
-</div>
+div class="errors"
+    div class="error" for(error in data.errors)
+        span class="icon"
+            - ✘
+        pre class="message"
+            - ${error.message}

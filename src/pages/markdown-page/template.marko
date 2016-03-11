@@ -1,29 +1,22 @@
-<lasso-page name="data.pageName" package-paths="data.packagePaths" cache-key="${data.lassoCacheKey}" />
+lasso-page [ name="data.pageName" package-paths=data.packagePaths
+    cache-key=data.lassoCacheKey ]
+var site=data.site
+layout-use("src/layouts/default/template.marko") [ site=site
+    active-section=data.activeSection ]
 
-<var name="site" value="data.site"/>
-
-<layout-use template="src/layouts/default/template.marko" site="${site}" active-section="${data.activeSection}">
-    <layout-put into="title">$data.title | ${site.title}</layout-put>
-    <layout-put into="body">
-        <div class="container">
-            <main>
-                <article class="hentry" role="article">
-
-                    <h1 class="page-title">$data.title</h1>
-
-                    <div class="page-body">
-                        $!{data.html}
-                    </div>
-                </article>
-            </main>
-            <section if="data.comments === true">
-                <h1>Comments</h1>
-                <div id="disqus_thread"></div>
-                <disqus-comments disqus-shortname="${site.disqusShortname}"
-                    page-id="data.pageName"
-                    page-title="${data.title}" />
-            </section>
-        </div>
-
-    </layout-put>
-</layout-use>
+    layout-put into="title"
+        - ${data.title} | ${site.title}
+    layout-put into="body"
+        div class="container"
+            main
+                article class="hentry" role="article"
+                    h1 class="page-title"
+                        - ${data.title}
+                    div class="page-body"
+                        - $!{data.html}
+            section if(data.comments === true)
+                h1
+                    - Comments
+                div id="disqus_thread"
+                disqus-comments [ disqus-shortname=site.disqusShortname
+                    page-id="data.pageName" page-title=data.title ]

@@ -77,6 +77,10 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko/compiler', 'marko', 'compiler');
             addDocsPage('/docs/marko/faq', 'marko', 'faq');
             addDocsPage('/docs/marko/additional-resources', 'marko', 'additional-resources');
+            addDocsPage('/docs/marko/async-taglib', 'marko', 'async-taglib');
+            addDocsPage('/docs/marko/layout-taglib', 'marko', 'layout-taglib');
+            addDocsPage('/docs/marko/what-is-new-marko-v3', 'marko', 'what-is-new-marko-v3');
+            addDocsPage('/docs/marko/marko-v3-presentation', 'marko', 'marko-v3-presentation');
 
             addDocsPage('/docs/marko-widgets', 'marko-widgets', 'overview');
             addDocsPage('/docs/marko-widgets/get-started', 'marko-widgets', 'get-started');

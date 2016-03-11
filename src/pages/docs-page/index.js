@@ -9,15 +9,23 @@ module.exports = function(input, out) {
             './component-lifecycle.md': '/docs/marko-widgets/component-lifecycle'
         }
     });
+
+    var frontMatter = markdownData.frontMatter;
     var project = input.project;
     var projectTitle = project === 'marko' ? 'Marko' : 'Marko Widgets';
 
+    var lassoFlags = [];
+
+    if (frontMatter && frontMatter.presentation) {
+        lassoFlags.push('presentation');
+    }
     var templateData = {
         site: input.site,
         blog: input.blog,
         html: markdownData.html,
         activeLink: input.project + '/' + input.name,
-        projectTitle: projectTitle
+        projectTitle: projectTitle,
+        lassoFlags: lassoFlags
     };
 
     extend(templateData, markdownData.frontMatter);

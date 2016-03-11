@@ -1,31 +1,15 @@
 <!-- As part of a "for" attribute: -->
-<div for="item in ['a', 'b', 'c']; iterator=data.reverseIterator">
-    $item
-</div>
-
+div for(item in ['a', 'b', 'c'] | iterator=data.reverseIterator)
+    - ${item}
 <!-- As part of a "<for>" element: -->
-<for each="item in ['a', 'b', 'c']" iterator="data.reverseIterator">
-    $item
-</for>
-
+for(item in ['a', 'b', 'c'] | iterator=data.reverseIterator)
+    - ${item}
 <!------------------------------->
 <!-- With a "status variable": -->
 <!------------------------------->
-
 <!-- As part of a "for" attribute: -->
-<div for="item in ['a', 'b', 'c'];
-          iterator=data.reverseIteratorStatus;
-          status-var=status">
-
-    ${status.index}$item
-
-</div>
-
+div for(item in ['a', 'b', 'c'] | iterator=data.reverseIteratorStatus status-var=status)
+    - ${status.index}${item}
 <!-- As part of a "<for>" element: -->
-<for each="item in ['a', 'b', 'c']"
-    iterator="data.reverseIteratorStatus"
-    status-var="status">
-
-    ${status.index}$item
-
-</for>
+for(item in ['a', 'b', 'c'] | iterator=data.reverseIteratorStatus status-var=status)
+    - ${status.index}${item}

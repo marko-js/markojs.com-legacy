@@ -40,7 +40,7 @@ article {
     border-bottom: 0.1em #eee solid;
     padding-bottom: 1.7em;
 }
-p, hr, h4, h5, h6 {
+p, h4, h5, h6 {
     padding: 0.9em 0;
 }
 
@@ -104,22 +104,26 @@ code {
     /*font-size:1.4em;*/
     background: #f8f8f8;
 }
+
 pre {
-    /*word-break: break-all;
-    word-wrap: break-word;
-    white-space: pre;
-    white-space: -moz-pre-wrap;
-    white-space: pre-wrap;
-    white-space: pre\9;*/
-    /*white-space: nowrap;*/
     background-color: #f8f8f8;
     border: 1px solid #ddd;
-    line-height: 1.1em;
+    padding: 9.5px;
+    line-height: 1.42857143
     overflow: auto;
     padding: 10px;
     margin-bottom: 0.9em;
     border-radius: 3px;
+    font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
+    font-size: 13px;
 }
+
+/*pre.editor {
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    padding: 9.5px;
+
+}*/
 
 input {
     font-size:1em;

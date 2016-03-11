@@ -1,74 +1,60 @@
-<lasso-page package-path="./browser.json"/>
+lasso-page package-path="./browser.json"
+var post=data.post
+var olderPost=post.nextOlderPost
+var newerPost=post.nextNewerPost
+var site=data.site
+var util=data.util
+var formattedDate=util.formatDate(post.date)
+layout-use("src/layouts/blog/template.marko") site=site
+    layout-put into="title"
+        - ${post.title} | ${site.title}
+    layout-put into="body"
+        div class="draft" if(post.status === "draft")
+            fa-icon name="exclamation-circle"
+            - Draft
+        article class="hentry" role="article"
+            h1 class="post-title"
+                - ${post.title}
+            div class="post-meta"
+                span class="byline author vcard"
+                    - Posted by
+                    span class="fn"
+                        - ${post.author.name}
+                - on
+                time [ data-updated="true" pubdate
+                    datetime=util.machineDate(post.date) ]
 
-<var name="post" value="data.post"/>
-<var name="olderPost" value="post.nextOlderPost"/>
-<var name="newerPost" value="post.nextNewerPost"/>
-<var name="site" value="data.site"/>
-<var name="util" value="data.util"/>
-<var name="formattedDate" value="util.formatDate(post.date)"/>
+                    - ${formattedDate}
+                span class="categories" if(notEmpty(post.categories))
+                    br
+                    i class="fa fa-tags"
+                    a [ href=site.postCategoryUrl(category) class="category"
+                        for(category in post.categories | separator=", ") ]
 
-<layout-use template="src/layouts/blog/template.marko" site="${site}">
-    <layout-put into="title">$post.title | ${site.title}</layout-put>
-    <layout-put into="body">
-        <div class="draft" if="post.status === 'draft'">
-            <fa-icon name="exclamation-circle"/> Draft
-        </div>
-        <article class="hentry" role="article">
+                        - ${category.title}
+            div class="post-body"
+                - $!{post.html}
+            div class="post-footer"
+                div class="sharing"
+                    twitter-share-link via=post.author.twitterHandle
+                div class="post-nav"
+                    span class="post-older" if(olderPost)
+                        a [ title="Older Post: ${olderPost.title}"
+                            href=site.postUrl(olderPost) class="post-older"
+                            if(olderPost) ]
 
-            <h1 class="post-title">$post.title</h1>
+                            fa-icon name="arrow-left"
+                            - Older: ${olderPost.title}
+                    br
+                    span class="post-newer" if(newerPost)
+                        a [ title="Next Post: ${newerPost.title}"
+                            href=site.postUrl(newerPost) class="post-newer" ]
 
-            <div class="post-meta">
-                <span class="byline author vcard">
-                    Posted by <span class="fn">$post.author.name</span>
-                </span> on
-                <time data-updated="true" pubdate datetime="${util.machineDate(post.date)}">
-                    ${formattedDate}
-                </time>
-                <span class="categories" if="notEmpty(post.categories)">
-                    <br>
-                    <i class="fa fa-tags"></i> <a href="${site.postCategoryUrl(category)}"
-                        class="category"
-                        for="category in post.categories; separator=', '">
-                        $category.title
-                    </a>
-                </span>
-            </div>
-            <div class="post-body">
-                $!{post.html}
-            </div>
-            <div class="post-footer">
-
-                <div class="sharing">
-                    <twitter-share-link via="$post.author.twitterHandle" />
-                </div>
-                <div class="post-nav">
-                    <span class="post-older" if="olderPost">
-                        <a title="Older Post: $olderPost.title"
-                            href="${site.postUrl(olderPost)}"
-                            class="post-older"
-                            if="olderPost">
-
-                            <fa-icon name="arrow-left"/> Older: ${olderPost.title}
-                        </a>
-                    </span>
-                    <br>
-                    <span class="post-newer" if="newerPost">
-                        <a title="Next Post: $newerPost.title"
-                            href="${site.postUrl(newerPost)}"
-                            class="post-newer">
-                            Newer: ${newerPost.title} <fa-icon name="arrow-right"/>
-                        </a>
-                    </span>
-                </div>
-            </div>
-        </article>
-        <section if="post.comments !== false">
-            <h1>Comments</h1>
-            <div id="disqus_thread"></div>
-            <disqus-comments disqus-shortname="${site.disqusShortname}"
-                page-id="${post.name}"
-                page-title="${post.title}" />
-        </section>
-
-    </layout-put>
-</layout-use>
+                            - Newer: ${newerPost.title}
+                            fa-icon name="arrow-right"
+        section if(post.comments !== false)
+            h1
+                - Comments
+            div id="disqus_thread"
+            disqus-comments [ disqus-shortname=site.disqusShortname
+                page-id=post.name page-title=post.title ]
