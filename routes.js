@@ -22,6 +22,8 @@ checkDocs();
 exports.loadRoutes = function() {
     return siteLoader.loadSite(__dirname)
         .then(function(site) {
+            var blog = site.blog;
+
             var routes = [];
 
             function addPage(path, handler) {
@@ -51,7 +53,6 @@ exports.loadRoutes = function() {
             }
 
             function addDocsPage(path, project, name) {
-
                 routes.push({
                     handler: require('./src/pages/docs-page'),
                     path: path,
@@ -60,7 +61,8 @@ exports.loadRoutes = function() {
                         site: site,
                         project: project,
                         name: name,
-                        markdownFile: nodePath.join(docsDirs[project], name + '.md')
+                        markdownFile: nodePath.join(docsDirs[project], name + '.md'),
+                        githubUrl: 'https://github.com/marko-js/' + project + '/docs/' + name + '.md'
                     }
                 });
             }
@@ -81,6 +83,9 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko/layout-taglib', 'marko', 'layout-taglib');
             addDocsPage('/docs/marko/what-is-new-marko-v3', 'marko', 'what-is-new-marko-v3');
             addDocsPage('/docs/marko/marko-v3-presentation', 'marko', 'marko-v3-presentation');
+            addDocsPage('/docs/marko/hapi', 'marko', 'hapi-marko');
+            addDocsPage('/docs/marko/koa', 'marko', 'koa-marko');
+            addDocsPage('/docs/marko/express', 'marko', 'express-marko');
 
             addDocsPage('/docs/marko-widgets', 'marko-widgets', 'overview');
             addDocsPage('/docs/marko-widgets/get-started', 'marko-widgets', 'get-started');
@@ -93,7 +98,6 @@ exports.loadRoutes = function() {
             addPage('/marko-widgets/try-online', require('./src/pages/marko-widgets-try-online'));
             addPage('/', require('./src/pages/home'));
 
-            var blog = site.blog;
             var posts = blog.getAllPosts();
             posts.forEach(function(post) {
                 routes.push({

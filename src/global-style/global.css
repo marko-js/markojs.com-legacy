@@ -115,15 +115,8 @@ pre {
     margin-bottom: 0.9em;
     border-radius: 3px;
     font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
-    font-size: 13px;
+    font-size: 0.8em;
 }
-
-/*pre.editor {
-    background-color: #f8f8f8;
-    border: 1px solid #ddd;
-    padding: 9.5px;
-
-}*/
 
 input {
     font-size:1em;
@@ -184,6 +177,9 @@ footer a:hover {
         font-size: 1.4em;
     }
 
+    pre {
+        font-size: 0.8em;
+    }
 }
 
 /* Tiny Screens */
@@ -224,8 +220,12 @@ footer a:hover {
         font-size: 1em;
     }
 
-    html, body, pre {
+    html, body {
         font-size: 1em;
+    }
+
+    pre {
+        font-size: 0.7em;
     }
 }
 

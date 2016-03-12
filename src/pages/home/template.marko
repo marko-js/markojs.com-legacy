@@ -4,12 +4,21 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
     layout-put into="title"
         - Marko - Template engine + UI Components
     layout-put into="body"
+        h2.announcement
+            ---
+            Marko v3 is here!
+            Find out
+            <a href="/docs/marko/what-is-new-marko-v3">
+                what is new in Marko v3
+            </a>
+            ---
+
         div class="hero-bg"
             div class="container"
                 div class="hero"
                     img src="/images/logo-large.png" alt="Marko" class="hero-img"
                     h2
-                        - A high performance templating engine and UI component layer
+                        - A high performance templating engine and UI component building library
         div class="container"
             main
                 section class="marketing"
@@ -19,7 +28,8 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
                                 - Marko: HTML Templating
                         p
                             ---
-                            Marko is a fast and lightweight HTML-based templating engine that compiles
+                            Marko is a <a href="https://github.com/marko-js/templating-benchmarks">fast</a>
+                            and lightweight HTML-based templating engine that compiles
                             templates to readable Node.js-compatible JavaScript modules, and it works on the server
                             and in the browser. It supports streaming, async rendering and custom tags.
                             ---
@@ -31,17 +41,12 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
                             pre
                                 - npm install marko
                     div class="marketing-col"
-                        <style>
-                        .foo {
-
-                        }
-                        </style>
                         h3
                             a href="/docs/marko-widgets/"
                                 - Marko Widgets: UI Components
                         p
                             ---
-                            Marko Widgets is lightweight UI component layer that sits on top of Marko.
+                            Marko Widgets is a UI component building library that utilizes Marko templates as the view.
                             It offers advanced features like DOM-diffing, batched updates, stateful widgets,
                             declarative event binding and efficient event delegation.
                             ---
@@ -54,6 +59,135 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
                         p
                             pre
                                 - npm install marko-widgets
+                <!--- end overview -->
+
+                div style="clear: both"
+
+                h2.syntax-heading
+                    ---
+                    Clean and flexible syntax
+                    ---
+                section class="marketing"
+                    div.syntax-col
+                        h3
+                            - HTML Syntax
+                        app-markdown
+                            ---
+                            ```xml
+                            <!DOCTYPE html>
+                            <html lang="en">
+                                <head>
+                                    <title>Marko Templating Engine</title>
+                                </head>
+                                <body>
+                                    <h1>
+                                        Hello ${data.name}!
+                                    </h1>
+
+                                    <ul if(notEmpty(data.colors))>
+                                        <li for(color in data.colors)>
+                                            ${color}
+                                        </li>
+                                    </ul>
+                                    <div else>
+                                        No colors!
+                                    </div>
+                                </body>
+                            </html>
+                            ```
+                            ---
+                    div.syntax-col
+                        h3
+                            - Concise Syntax
+                        app-markdown
+                            ---
+                            ```xml
+                            <!DOCTYPE html>
+                            html lang="en"
+                                head
+                                    title - Marko Templating Engine
+                                body
+                                    h1 - Hello ${data.name}!
+                                    ul if(notEmpty(data.colors))
+                                        li for(color in data.colors)
+                                            ${color}
+                                    div else
+                                        - No colors!
+                            ```
+                            ---
+                div style="clear: both"
+                div.syntax-col
+                    h3
+                        - Mixed Syntax
+                    app-markdown
+                        ---
+                        ```xml
+                        <!DOCTYPE html>
+                        html lang="en"
+                            head
+                                <title>Marko Templating Engine</title>
+                            body
+                                <h1>
+                                    Hello ${data.name}!
+                                </h1>
+                                ul if(notEmpty(data.colors))
+                                    li for(color in data.colors)
+                                        ${color}
+                                div else
+                                    - No colors!
+                        ```
+                        ---
+                div.syntax-col
+                    h3
+                        - Marko Usage
+                    app-markdown
+                        ---
+
+                        ```javascript
+                        var template = require('./template.marko');
+
+                        app.get('/', function(req, res) {
+                            template.render({
+                                    name: 'Frank',
+                                    colors: ['red', 'green', 'blue']
+                                }, res);
+                        });
+                        ```
+                        ---
+                <!-- end syntax -->
+                div style="clear: both"
+                div.marketing-col
+                    h3
+                        - Marko Features
+                    app-markdown
+                        ---
+                        - Extremely fast
+                        - Streaming and async rendering
+                        - Progressive HTML rendering
+                        - Custom tags
+                        - Compiles to readable CommonJS modules
+                        - Server-side and client-side rendering
+                        - Use Marko with any web framework:
+                            - [Express](/docs/marko/express/)
+                            - [Koa](/docs/marko/koa/)
+                            - [Hapi](/docs/marko/hapi/)
+                        - Syntax highlighting in popular editors and IDEs
+                        ---
+                div.marketing-col
+                    h3
+                        - Marko Widgets Features
+                    app-markdown
+                        ---
+                        - Lightweight UI component building library
+                        - Marko used as the view
+                        - DOM diffing/patching
+                        - Batched updates
+                        - Stateful and stateless UI components
+                        - Declarative event binding
+                        - Efficient event delegation
+                        - Server-side and client-side rendering
+                        - Compatible with Redux
+                        ---
                 div style="clear: both"
                 div class="videos"
                     iframe [ width="560" height="315"

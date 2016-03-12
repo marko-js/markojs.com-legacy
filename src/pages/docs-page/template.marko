@@ -11,4 +11,5 @@ layout-use("src/layouts/default/template.marko") [ site=data.site
                 h1 class="page-title"
                     - ${data.title}
                     span class="subtitle" - &nbsp;// ${data.projectTitle}
+                    a.improve-link href=data.githubUrl - Improve this page
                 - $!{data.html}

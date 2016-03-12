@@ -1,3 +1,9 @@
+.announcement {
+    text-align: center;
+    font-size: 1em;
+    background-color: #ffffcc;
+}
+
 .hero {
     text-align: center;
     padding: 40px 10px 0;
@@ -14,7 +20,11 @@
     font-weight: 300;
 }
 
-.marketing-col {
+.syntax-heading {
+    text-align: center;
+}
+
+.marketing-col, .syntax-col {
     width: 50%;
     float: left;
     padding: 15px;
@@ -22,13 +32,20 @@
     text-justify: inter-word;
 }
 
-.marketing-col h3 {
+.marketing-col h3, .syntax-col h3 {
     text-align: center;
 }
 
 .videos {
     text-align: center;
     margin-top: 2em;
+}
+
+@media only screen and (max-width: 859px) {
+    .syntax-col {
+        width: auto;
+        float: none;
+    }
 }
 
 /* Tiny Screens */

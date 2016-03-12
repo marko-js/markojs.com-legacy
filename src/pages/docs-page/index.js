@@ -25,7 +25,8 @@ module.exports = function(input, out) {
         html: markdownData.html,
         activeLink: input.project + '/' + input.name,
         projectTitle: projectTitle,
-        lassoFlags: lassoFlags
+        lassoFlags: lassoFlags,
+        githubUrl: input.githubUrl
     };
 
     extend(templateData, markdownData.frontMatter);
