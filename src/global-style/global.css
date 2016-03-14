@@ -108,8 +108,7 @@ code {
 pre {
     background-color: #f8f8f8;
     border: 1px solid #ddd;
-    padding: 9.5px;
-    line-height: 1.42857143
+    line-height: 1.42857143;
     overflow: auto;
     padding: 10px;
     margin-bottom: 0.9em;

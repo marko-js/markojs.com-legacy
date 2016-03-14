@@ -62,7 +62,7 @@ exports.loadRoutes = function() {
                         project: project,
                         name: name,
                         markdownFile: nodePath.join(docsDirs[project], name + '.md'),
-                        githubUrl: 'https://github.com/marko-js/' + project + '/docs/' + name + '.md'
+                        githubUrl: 'https://github.com/marko-js/' + project + '/blob/master/docs/' + name + '.md'
                     }
                 });
             }
