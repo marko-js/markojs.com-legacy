@@ -226,6 +226,11 @@ footer a:hover {
     pre {
         font-size: 0.7em;
     }
+
+    .gitter-open-chat-button {
+        position: static;
+        float: right;
+    }
 }
 
 table.markdown-table {
