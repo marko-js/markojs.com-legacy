@@ -24,13 +24,13 @@ app.get('/', function(req, res) {
 });
 ```
 
-Marko has always has always been designed to have strong support for building UI components that encapsulate rendering logic, client-side behavior and styling. [Marko Widgets](http://markojs.com/docs/marko-widgets/) is a UI component building library that uses Marko templates as the view. Marko Widgets offers advanced features like DOM-diffing, batched updates, stateful and stateless widgets, declarative event binding and efficient event delegation. Marko, combined with Marko Widgets, is a very compelling solution for building high performance web applications with a universal/isomorphic UI components-based architecture. Marko Widgets adopted many of the great ideas promoted by the React team and the differences between Marko Widgets and React mainly centers around the view definition (Marko templates vs JSX/VDOM) and both work equally well with application state containers such as [Redux](https://github.com/reactjs/redux).
+Marko has always been designed to have strong support for building UI components that encapsulate rendering logic, client-side behavior and styling. [Marko Widgets](http://markojs.com/docs/marko-widgets/) is a UI component building library that uses Marko templates as the view. Marko Widgets offers advanced features like DOM-diffing, batched updates, stateful & stateless widgets, declarative event binding, and efficient event delegation. Marko, combined with Marko Widgets, is a very compelling solution for building high performance web applications with a universal/isomorphic UI components-based architecture. Marko Widgets adopted many of the great ideas promoted by the React team and the differences between Marko Widgets and React mainly centers around the view definition (Marko templates vs JSX/VDOM) and both work equally well with application state containers such as [Redux](https://github.com/reactjs/redux).
 
 Finally, Marko is well-supported in all major web frameworks (including [Express](/docs/marko/express/), [Koa](/docs/marko/koa/) and [Hapi](/docs/marko/hapi/)). Since the Marko compiler produces CommonJS modules as output, Marko templates can easily be rendered in all web browsers using a JavaScript module bundler such as [Lasso.js](https://github.com/lasso-js/lasso), [Browserify](http://browserify.org/) and [Webpack](https://webpack.github.io/).
 
 ## HTML-JS syntax
 
-Marko's clean HTML-based syntax has been a strength, but over time it became clear that utilizing a strict HTML parser was actually putting heavy constraints on the Marko language that negatively impacted code readability and usability. The new HTML-JS syntax that ships with Marko v3 breaks away from the limitations associated with the standard HTML syntax while still maintaining the look and feel of HTML.
+Marko's clean HTML-based syntax has been a strength, but over time it became clear that utilizing a strict HTML parser was actually putting unnecessary constraints on the Marko language that negatively impacted code readability and usability. The new HTML-JS syntax that ships with Marko v3 breaks away from the limitations associated with the standard HTML syntax while still maintaining the look and feel of HTML.
 
 The previous release of Marko utilized an off-the-shelf HTML parser that parsed all HTML attribute values as strings and required separate tag schema files to associate type information with an attribute value for custom tags. To make this more clear, let's take a look at a simple template.
 
@@ -52,7 +52,7 @@ In the example above we are including a custom tag and passing some _data_ to th
 }
 ```
 
-The information provided in the schema instructed Marko on how to interpret string attribute values. The schema approach worked, and it was simple, but the necessity for a schema was a problem and it degraded template readability.
+The information provided in the schema instructed Marko on how to interpret string attribute values. The schema approach worked, and it was simple, but the necessity for a schema was an annoyance and it degraded template readability.
 
 The new HTML-JS parser fixes this problem by parsing all attribute values as JavaScript expressions.
 
@@ -80,7 +80,7 @@ The move from HTML to HTML-JS is analogous to moving from XML to JSON to store h
 
 ### Tag and attribute arguments
 
-In addition to introducing attribute types, the new HTML-JS syntax supports passing arguments to tags and attributes as shown below:
+In addition to introducing attribute types, the new HTML-JS syntax supports tag and attribute arguments as shown below:
 
 ```xml
 <ul>
@@ -290,7 +290,7 @@ div else
 
 # Summary
 
-We find it very rewarding to see the Marko community growing and eBay has continued to be a strong sponsor of this open source project. It is exciting to see more projects outside eBay adopting Marko and as this project has matured we are seeing more and more outside contributions (including documentation, tools, code improvements and ideas).
+We find it very rewarding to see the Marko community growing and [eBay](http://www.ebay.com/) has continued to be a major contributor to this open source project. It is exciting to see more projects outside eBay adopting Marko, and, as this project has matured, we are seeing more and more outside contributions (including documentation, tools, code improvements and ideas).
 
 With the Marko v3 release we have also improved tooling support:
 
