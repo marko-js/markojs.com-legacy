@@ -71,7 +71,7 @@ exports.loadRoutes = function() {
             addMarkdownPage('/community', require.resolve('./src/pages/community.md'), { activeSection: 'community' });
             addMarkdownPage('/github', require.resolve('./src/pages/github.md'), { activeSection: 'github' });
 
-            addMarkdownPage('/marko-v3-draft', require.resolve('./src/blog-posts/drafts/marko-v3.md'), { activeSection: 'github' });
+            // addMarkdownPage('/marko-v3-draft', require.resolve('./src/blog-posts/published/2016-03-16-marko-v3.md'), { activeSection: 'github' });
 
 
             addDocsPage('/docs/', 'marko', 'overview');
