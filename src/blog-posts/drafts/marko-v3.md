@@ -3,7 +3,7 @@ Marko v3: From HTML to HTML-JS
 
 Marko is one of the fastest, lightest and most powerful HTML templating engines for Node.js and the browser, and we are very pleased to see a healthy and growing community. Marko has been [downloaded over 100k times](http://npm-stat.com/charts.html?package=marko) in the first few months of 2016, and the project has a very active [Gitter chat room](https://gitter.im/marko-js/marko). We are excited to announce some huge improvements to the Marko templating engine as part of the v3 release.
 
-First off, a huge thanks to all of the contributors who have provided code and feedback for the amazing Marko v3 release (see [#90](https://github.com/marko-js/marko/issues/90), [#211](https://github.com/marko-js/marko/issues/211), especially [@adammcarth](https://github.com/adammcarth), [@BryceEWatson](https://github.com/BryceEWatson), [@crsandeep](https://github.com/crsandeep), [@DanCech](https://github.com/DanCech), [@danrichman](https://github.com/danrichman), [@kristianmandrup](https://github.com/kristianmandrup), [@onemrkarthik](https://github.com/onemrkarthik), [@philidem](https://github.com/philidem), [@pswar](https://github.com/pswar), [@scttdavs](https://github.com/scttdavs), [@SunnyGurnani](https://github.com/SunnyGurnani), [@tindli](https://github.com/tindli), [@vedam](https://github.com/vedam) and [@yomed](https://github.com/yomed))! Extra thanks to [@philidem](https://github.com/philidem) for taking on the arduous task of building the new [htmljs-parser](https://github.com/philidem/htmljs-parser) used by Marko v3.
+First off, a huge thanks to all of the contributors who have provided code and feedback for the amazing Marko v3 release (see [#90](https://github.com/marko-js/marko/issues/90), [#211](https://github.com/marko-js/marko/issues/211), especially [Adam McArthur](https://github.com/adammcarth), [Achim Vedam](https://github.com/vedam), [Bryce Watson](https://github.com/BryceEWatson), [Dan Cech](https://github.com/DanCech), [Dan Richman](https://github.com/danrichman), [Kristian Mandrup](https://github.com/kristianmandrup), [@onemrkarthik](https://github.com/onemrkarthik), [Phillip Gates-Idem](https://github.com/philidem), [Sathish Pottavathini](https://github.com/pswar), [Sandeep Raveesh](https://github.com/crsandeep), [Scott Davis](https://github.com/scttdavs), [Sean Gates](https://github.com/seangates), [Sunny Gurnani](https://github.com/SunnyGurnani), [@tindli](https://github.com/tindli) and [Yoni Medoff](https://github.com/yomed))! Extra thanks to [Phillip Gates-Idem](https://github.com/philidem) for taking on the arduous task of building the new [htmljs-parser](https://github.com/philidem/htmljs-parser) used by Marko v3.
 
 # A quick intro to Marko
 
@@ -149,14 +149,17 @@ Another exciting improvement to Marko is that the new HTML-JS syntax supports bo
 ```xml
 // Basic JavaScript constructs
 var colors=["red", "green", "blue"]
+
 // Placeholders, looping and conditionals
 ul if(notEmpty(colors))
     li for(color in colors)
         - ${color}
 div else
     - No colors!
+
 // Custom tags
 greeting name="Frank" message-count=10
+
 // Macros
 macro navLink(href, title, isActive)
     li class=(isActive ? "active" : null)
@@ -173,14 +176,17 @@ The HTML syntax and the concise syntax can even be combined within the same docu
 ```xml
 // Basic JavaScript constructs
 var colors=["red", "green", "blue"]
+
 // Placeholders, looping and conditionals
 ul if(notEmpty(colors))
     li for(color in colors)
         - ${color}
 div else
     - No colors!
+
 // Custom tags
 <greeting name="Frank" message-count=10/>
+
 // Macros
 macro navLink(href, title, isActive)
     <li class=(isActive ? "active" : null)>
@@ -212,7 +218,7 @@ The differences between Marko and JSX have important implications and this can b
 
 > There is an important tradeoff between the computational power of a language and the ability to determine what a program in that language is doing.
 
-The Rule of Least Power is has become a guiding [W3C principle](http://www.w3.org/2001/tag/doc/leastPower-2006-02-23.html#discussion):
+The Rule of Least Power has become a guiding [W3C principle](http://www.w3.org/2001/tag/doc/leastPower-2006-02-23.html#discussion):
 
 > Good Practice: Use the least powerful language suitable for expressing information, constraints or programs on the World Wide Web.
 
@@ -298,7 +304,7 @@ With the Marko v3 release we have also improved tooling support:
 - Sublime Text: [marko-sublime](https://github.com/merwan7/sublime-marko)
 - WebStorm: [marko.tmbundle](https://github.com/marko-js/marko-tmbundle) (See: [Importing TextMate Bundles](https://www.jetbrains.com/phpstorm/help/importing-textmate-bundles.html)) (New!)
 - TextMate: [marko.tmbundle](https://github.com/marko-js/marko-tmbundle)
-- CodeMirror/Brackets (New!)
+- CodeMirror/Brackets: [codemirror-atom-modes](https://github.com/patrick-steele-idem/codemirror-atom-modes) (New!)
 - Prettyprint: [marko-prettyprint](https://github.com/marko-js/marko-prettyprint)
 
 We also released a tool that will automatically migrate your Marko v2 templates to use the new Marko v3 syntax: [marko-migrate](https://github.com/marko-js/marko-migrate).
