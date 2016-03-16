@@ -71,6 +71,9 @@ exports.loadRoutes = function() {
             addMarkdownPage('/community', require.resolve('./src/pages/community.md'), { activeSection: 'community' });
             addMarkdownPage('/github', require.resolve('./src/pages/github.md'), { activeSection: 'github' });
 
+            addMarkdownPage('/marko-v3-draft', require.resolve('./src/blog-posts/drafts/marko-v3.md'), { activeSection: 'github' });
+
+
             addDocsPage('/docs/', 'marko', 'overview');
             addDocsPage('/docs/marko/get-started', 'marko', 'get-started');
             addDocsPage('/docs/marko/javascript-api', 'marko', 'javascript-api');
@@ -93,6 +96,8 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko-widgets/javascript-api', 'marko-widgets', 'javascript-api');
             addDocsPage('/docs/marko-widgets/faq', 'marko-widgets', 'faq');
             addDocsPage('/docs/marko-widgets/additional-resources', 'marko-widgets', 'additional-resources');
+
+
 
             addPage('/try-online', require('./src/pages/marko-try-online'));
             addPage('/marko-widgets/try-online', require('./src/pages/marko-widgets-try-online'));

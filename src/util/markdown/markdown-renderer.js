@@ -65,7 +65,7 @@ exports.render = function renderMarkdown(markdown) {
     markedRenderer.code = function(code, lang, escaped) {
         var scopeName;
 
-        if (lang === 'js' || lang === 'javascript') {
+        if (lang === 'js' || lang === 'javascript' || lang === 'json') {
             scopeName = 'source.js';
         } else if (lang === 'css') {
             scopeName = 'source.css';

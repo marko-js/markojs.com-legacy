@@ -11,3 +11,7 @@
 .marko-placeholder {
     background-color: rgba(0, 255, 0, 0.1);
 }
+
+.entity.name.tag {
+  font-weight: bold;
+}
