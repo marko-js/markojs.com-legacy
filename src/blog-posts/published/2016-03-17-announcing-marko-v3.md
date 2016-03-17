@@ -222,7 +222,7 @@ JSX is sugar on top of JavaScript and the JSX transform is required to translate
 
 In contrast, Marko was designed to allow template authors to describe the intent while giving the compiler and runtime much greater flexibility in determining the _how_. Marko allows compile-time transformations and custom code generators for custom tags and custom attributes for further optimizing compiled templates. Among other things, the Marko compiler concatenates all static blocks of HTML into a single string and it removes extra whitespace. While not fully exploited, the architecture of Marko allows different compiled code based on custom output modes. For example, the Marko compiler can either produce a program that, when executed, streams HTML (for use on the server) or creates a DOM tree (for use in the browser).
 
-The very large portion of Marko Widgets is implemented as compile-time code transformations and code generators. As a result, the runtime for Marko Widgets is fairly minimal.
+A very large portion of Marko Widgets is implemented as compile-time code transformations and code generators. As a result, the runtime for Marko Widgets is fairly minimal.
 
 ## Runtime performance
 
