@@ -79,6 +79,9 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko/javascript-api', 'marko', 'javascript-api');
             addDocsPage('/docs/marko/language-guide', 'marko', 'language-guide');
             addDocsPage('/docs/marko/custom-taglibs', 'marko', 'custom-taglibs');
+            addDocsPage('/docs/marko/compiler/advanced', 'marko', 'compiler-advanced');
+            addDocsPage('/docs/marko/compiler/compile-time-tags', 'marko', 'compile-time-tags');
+            addDocsPage('/docs/marko/compiler/api', 'marko', 'compiler-api');
             addDocsPage('/docs/marko/compiler', 'marko', 'compiler');
             addDocsPage('/docs/marko/faq', 'marko', 'faq');
             addDocsPage('/docs/marko/additional-resources', 'marko', 'additional-resources');
@@ -89,6 +92,8 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko/hapi', 'marko', 'hapi-marko');
             addDocsPage('/docs/marko/koa', 'marko', 'koa-marko');
             addDocsPage('/docs/marko/express', 'marko', 'express-marko');
+
+
 
             addDocsPage('/docs/marko-widgets', 'marko-widgets', 'overview');
             addDocsPage('/docs/marko-widgets/get-started', 'marko-widgets', 'get-started');

@@ -1,4 +1,4 @@
-Marko v3: From HTML to HTML-JS
+Announcing Marko v3: From HTML to HTML-JS
 ==============================
 
 Marko is one of the fastest, lightest and most powerful HTML templating engines for Node.js and the browser, and we are very pleased to see a healthy and growing community. Marko has been [downloaded over 100k times](http://npm-stat.com/charts.html?package=marko) in the first few months of 2016, and the project has a very active [Gitter chat room](https://gitter.im/marko-js/marko). We are excited to announce some huge improvements to the Marko templating engine as part of the v3 release.
@@ -7,7 +7,7 @@ First off, a huge thanks to all of the contributors who have provided code and f
 
 # A quick intro to Marko
 
-Marko has been shown to be one of the [fastest](https://github.com/marko-js/templating-benchmarks) templating engines with almost 2x the speed of Handlebars and 5x the speed of Jade and nunjucks. In addition, in a [real-world benchmark](https://github.com/patrick-steele-idem/marko-vs-react), Marko (paired with [Marko Widgets](http://markojs.com/docs/marko-widgets/)) was shown to be 10x faster than React when rendering a search results page on the server using a very similar UI components architecture. An _order of magnitude_ difference is _very significant_ and this performance gap translated to the React app only being able to handle ~72 requests per second, while the Marko app achieved ~820 requests per second. Marko continues to offer streaming and asynchronous rendering, and these features make it easy to create pages that load near instantaneously when rendered on the server (see [KnowThen: Episode 8 – Serving Content in Koajs with Marko](http://knowthen.com/episode-8-serving-content-in-koajs-with-marko/)). The Marko compiler produces minimal and readable CommonJS modules as output and the runtime is only about `3.5KB` gzipped.
+Marko has been shown to be one of the [fastest](https://github.com/marko-js/templating-benchmarks) templating engines with almost 2x the speed of Handlebars and 5x the speed of Jade and nunjucks. In addition, in a [real-world benchmark](https://github.com/patrick-steele-idem/marko-vs-react), Marko (paired with [Marko Widgets](http://markojs.com/docs/marko-widgets/)) was shown to be 10x faster than React when rendering a search results page on the server using a very similar UI components architecture. An _order of magnitude_ difference is _very significant_ and this performance gap translated to the React app only being able to handle ~72 requests per second, while the Marko app achieved ~820 requests per second. Marko offers streaming and asynchronous rendering, and these features make it easy to create pages that load near instantaneously when rendered on the server (see [KnowThen: Episode 8 – Serving Content in Koajs with Marko](http://knowthen.com/episode-8-serving-content-in-koajs-with-marko/)). The Marko compiler produces minimal and readable CommonJS modules as output and the runtime is only about `3.5KB` gzipped.
 
 While performance of Marko is best-in-class, usability is also very important. Marko v3 introduces a new HTML-JS syntax and a new parser that makes Marko more intuitive.
 
@@ -24,7 +24,7 @@ app.get('/', function(req, res) {
 });
 ```
 
-Marko has always been designed to have strong support for building UI components that encapsulate rendering logic, client-side behavior and styling. [Marko Widgets](http://markojs.com/docs/marko-widgets/) is a UI component building library that uses Marko templates as the view. Marko Widgets offers advanced features like DOM diffing/patching, batched updates, stateful & stateless widgets, declarative event binding, and efficient event delegation. Marko, combined with Marko Widgets, is a very compelling solution for building high performance web applications with a universal/isomorphic UI components-based architecture. Marko Widgets adopted many of the great ideas promoted by the React team. The differences between Marko Widgets and React mainly centers around the view definition (Marko templates vs JSX/VDOM) and both work equally well with application state containers such as [Redux](https://github.com/reactjs/redux).
+Marko has always been designed to have strong support for building UI components that encapsulate rendering logic, client-side behavior and styling. [Marko Widgets](http://markojs.com/docs/marko-widgets/) is a UI component building library that uses Marko templates as the view. Marko Widgets offers advanced features like DOM diffing/patching, batched updates, stateful & stateless widgets, declarative event binding, and efficient event delegation. Marko, combined with Marko Widgets, is a very compelling solution for building high performance web applications with a universal/isomorphic UI components-based architecture. Marko Widgets adopted many of the great ideas promoted by the React team.
 
 Finally, Marko is well-supported in all major web frameworks (including [Express](/docs/marko/express/), [Koa](/docs/marko/koa/) and [Hapi](/docs/marko/hapi/)). Since the Marko compiler produces CommonJS modules as output, Marko templates can easily be rendered in all web browsers using a JavaScript module bundler such as [Lasso.js](https://github.com/lasso-js/lasso), [Browserify](http://browserify.org/) and [Webpack](https://webpack.github.io/).
 
@@ -54,7 +54,7 @@ In the example above we are including a custom tag and passing some _data_ to th
 
 The information provided in the schema instructed Marko on how to interpret string attribute values. The schema approach worked, and it was simple, but the necessity for a schema was an annoyance and it degraded template readability.
 
-The new HTML-JS parser fixes this issue by parsing all attribute values as JavaScript expressions.
+The new HTML-JS parser solves this issue by parsing all attribute values as JavaScript expressions.
 
 _Marko v3 HTML-JS template:_
 
@@ -203,45 +203,48 @@ The new concise syntax for Marko was heavily inspired by Jade/Pug. However, we r
 
 # A note on Marko versus JSX/React
 
+[Marko Widgets](http://markojs.com/docs/marko-widgets/) is a UI component building library that uses Marko templates as the view. Marko Widgets has a lot in common with React, but Marko Widgets uses Marko templates to define the view and React typically uses JSX to define the view.
+
 Both Marko and JSX aim to blend JavaScript and HTML. Marko and JSX may seem very similar on the surface:
 
 > Marko makes HTML more like JavaScript.<br>
 > JSX makes JavaScript more like HTML.
 
-However, there is a subtle but very important difference:
+However, there are some very subtle but important differences:
 
-While Marko allows JavaScript expressions and basic JavaScript constructs, it is still largely a _declarative_ language because it starts with HTML. In comparison, JSX is well-defined as being sugar on top of JavaScript and is therefore an _imperative_ language that does not leave much room for compile-time optimizations. That is, when writing a Marko template you are explaining _what_ you want your code to do, while when writing JSX you are explaining exactly _how_ it should do it. With Marko, the compiler and runtime determine the _how_. There are enormous benefits to allowing the Marko compiler to determine the _how_ as described in the next few sections.
+## Compile-time optimizations
 
-## The Rule of Least Power
+JSX is sugar on top of JavaScript and the JSX transform is required to translate embedded XML code into JavaScript code that produces a tree of virtual DOM nodes that _directly_ corresponds to the declared XML structure. In addition, React is purely a runtime engine. The strict transformation expected of JSX and the design of React leaves very little room for compile-time optimizations.
 
-The differences between Marko and JSX have important implications and this can be mainly attributed to the [Rule of Least Power](http://www.w3.org/2001/tag/doc/leastPower-2006-02-23.html):
+In contrast, Marko was designed to allow template authors to describe the intent while giving the compiler and runtime much greater flexibility in determining the _how_. Marko allows compile-time transformations and custom code generators for custom tags and custom attributes for further optimizing compiled templates. Among other things, the Marko compiler concatenates all static blocks of HTML into a single string and it removes extra whitespace. While not fully exploited, the architecture of Marko allows different compiled code based on custom output modes. For example, the Marko compiler can either produce a program that, when executed, streams HTML (for use on the server) or creates a DOM tree (for use in the browser).
 
-> There is an important tradeoff between the computational power of a language and the ability to determine what a program in that language is doing.
+The very large portion of Marko Widgets is implemented as compile-time code transformations and code generators. As a result, the runtime for Marko Widgets is fairly minimal.
 
-The Rule of Least Power has become a guiding [W3C principle](http://www.w3.org/2001/tag/doc/leastPower-2006-02-23.html#discussion):
+## Runtime performance
 
-> Good Practice: Use the least powerful language suitable for expressing information, constraints or programs on the World Wide Web.
+Marko has chosen to focus on rendering HTML while React has chosen to focus on rendering virtual DOM nodes.
 
-The following links can be used to learn more about the Rule of Least Power:
+Once JSX is used to render a tree of nodes on the server, it is then necessary to walk the entire tree to serialize it to HTML for sending to the browser. Building _and_ traversing a tree requires more memory and CPU than just running a program that renders HTML in a single pass (especially as the complexity of the DOM increases).
 
-- [We need less powerful languages](http://lukeplant.me.uk/blog/posts/less-powerful-languages/) by [Luke Plant](http://lukeplant.me.uk/)
-- [In Defense of Templates](https://www.youtube.com/watch?v=VY-r7Ac06ho&feature=youtu.be&t=498) (YouTube clip) by [Tom Dale](http://tomdale.net/)
+The Marko compiler produces a program that renders a template to a stream in a single pass. On the server, writing HTML strings to an output stream is extremely efficient.
 
-In relation to templating languages, the Rule of Least Power has implications for both _performance_ and _readability_.
+## Overall performance
 
-## Performance
+A smart compiler paired with a runtime that supports streaming and asynchronous rendering allows Marko to excel on the server.
 
-When utilizing JSX, the performance of your code will be determined by how _you_ write your code (and the JavaScript runtime). However, because Marko is more declarative there are more opportunities for the Marko compiler to make improvements in the output program without you, the developer, having to change a single line of code. This difference has resulted in Marko being _10x_ faster than JSX on the server in a real-world benchmark. An _order of magnitude_ difference is very significant as shown in the following graph:
+These characteristics have resulted in Marko (combined with Marko Widgets) being _10x_ faster than React on the server in a real-world benchmark. An _order of magnitude_ difference is very significant as shown in the following graph:
 
 ![Average Requests per Second](https://raw.githubusercontent.com/patrick-steele-idem/marko-vs-react/master/charts/requestsPerSecond.png)
 
 Source: [Marko vs React: Performance Benchmark](https://github.com/patrick-steele-idem/marko-vs-react)
 
-On top of that, Marko has the potential to be optimized even more in the future with more improvements to the compiler.
+In the browser, our benchmark showed no significant difference in performance when comparing Marko Widgets and React (although Marko Widgets seemed to have an edge in the mobile iOS browser).
 
-Based on our observations, the main reason that Marko surpasses React when rendering the same page on the server is that Marko has almost full control over the _how_. The Marko compiler produces a program that renders a template in a single pass, and it makes lots of smart optimizations at compile-time. For example, Marko concatenates all static blocks of HTML and it removes extra whitespace—all at compile-time. In contrast, JSX is sugar on top of JavaScript that serves as a tree building language and React is purely a runtime engine. Once JSX is used to render a tree of nodes on the server, it is then necessary to walk the entire tree to serialize it to HTML for sending to the browser.
+## Usability
 
-Building _and_ traversing a tree requires more memory and CPU than just running a program that renders HTML in a single pass.
+Despite differences in the design of Marko Widgets and React, both support building UI components with rich features such as transclusion, container components, parent/child relationships, efficient event delegation and views based on state. On the client, web browsers can very quickly translate an HTML string into a DOM tree and it turns out that a virtual DOM is not needed to achieve the benefits of DOM diffing/patching. The [morphdom](https://github.com/patrick-steele-idem/morphdom) module was created to enable DOM diffing/patching using only the _real_ DOM. Marko Widgets has adopted [morphdom](https://github.com/patrick-steele-idem/morphdom) and offers a very simple approach to building UI components with views that automatically and efficiently update when state changes. Marko Widgets is compatible with application state containers such as [Redux](https://github.com/reactjs/redux).
+
+Unlike other templating engines, Marko was designed to fully leverage the power of JavaScript. Marko is a very powerful HTML templating engine that happens to start with HTML, but it is no less powerful than JSX.
 
 ## Readability
 
@@ -296,7 +299,7 @@ div else
 
 # Summary
 
-We have found it very rewarding to see the Marko community growing, and [eBay](http://www.ebay.com/) has continued to be a major contributor to this open source project. It is exciting to see more projects outside eBay adopting Marko, and, as this project has matured, we are seeing more and more outside contributions (including documentation, tools, code improvements and ideas).
+We have found it very rewarding to see the Marko community growing, and [eBay](http://www.ebay.com/) has continued to be a major contributor to this open source project. It is exciting to see more teams outside eBay adopting Marko, and, as this project has matured, we are seeing more and more outside contributions (including documentation, tools, code improvements and ideas).
 
 With the Marko v3 release we have also improved tooling support:
 
@@ -311,6 +314,6 @@ We also released a [marko-migrate](https://github.com/marko-js/marko-migrate) to
 
 For a complete list of what changed in Marko v3, please read [What's New in Marko v3](http://markojs.com/docs/marko/what-is-new-marko-v3/).
 
-Marko is heavily tested with over 600 individual tests for Marko and its new parser. eBay is far along in transitioning to the Node.js stack for the website and Marko and Marko Widgets has been the technology of choice for almost all teams. As a result, Marko and Marko Widgets have been battle tested in production.
+Marko is heavily tested with over 600 individual tests for Marko and its new parser. eBay is far along in transitioning to the Node.js stack for the website front-end and Marko and Marko Widgets has been the technology of choice for almost all teams. As a result, Marko and Marko Widgets have been battle tested in production.
 
 If you have ideas on how to improve Marko please let us know. We welcome new contributors so if you would like to help out please join us in the [Gitter chat room for Marko](gitter.im/marko-js/marko), [file an issue on Github](https://github.com/marko-js/marko) or send us a pull request.
