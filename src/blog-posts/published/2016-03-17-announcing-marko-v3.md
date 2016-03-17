@@ -5,7 +5,7 @@ Marko is one of the fastest, lightest and most powerful HTML templating engines 
 
 First off, a huge thanks to all of the contributors who have provided code and feedback for the amazing Marko v3 release (see [#90](https://github.com/marko-js/marko/issues/90), [#211](https://github.com/marko-js/marko/issues/211), especially [Adam McArthur](https://github.com/adammcarth), [Achim Vedam](https://github.com/vedam), [Bryce Watson](https://github.com/BryceEWatson), [Dan Cech](https://github.com/DanCech), [Dan Richman](https://github.com/danrichman), [Kristian Mandrup](https://github.com/kristianmandrup), [@onemrkarthik](https://github.com/onemrkarthik), [Phillip Gates-Idem](https://github.com/philidem), [Sathish Pottavathini](https://github.com/pswar), [Sandeep Raveesh](https://github.com/crsandeep), [Scott Davis](https://github.com/scttdavs), [Sean Gates](https://github.com/seangates), [Sunny Gurnani](https://github.com/SunnyGurnani), [@tindli](https://github.com/tindli) and [Yoni Medoff](https://github.com/yomed))! Extra thanks to [Phillip Gates-Idem](https://github.com/philidem) for taking on the arduous task of building the new [htmljs-parser](https://github.com/philidem/htmljs-parser) used by Marko v3.
 
-For Marko v2 users, you can use the [marko-migrate](https://github.com/marko-js/marko-migrate) tool that will automatically migrate your Marko v2 templates to use the new Marko v3 syntax.
+For Marko v2 users, you can use the [marko-migrate](https://github.com/marko-js/marko-migrate) tool to automatically migrate your Marko v2 templates to use the new Marko v3 syntax.
 
 For a complete list of what changed in Marko v3, please read [What's New in Marko v3](http://markojs.com/docs/marko/what-is-new-marko-v3/).
 
