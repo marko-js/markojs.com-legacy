@@ -9,7 +9,7 @@ TARGET_DIR=`(cd $TARGET_DIR; pwd)`
 # Rebuild the site
 NODE_ENV=production npm run build --silent
 
-rm -rf ./cache/
+rm -rf .cache/
 
 rm -rf $TARGET_DIR/*
 cp -r build/ $TARGET_DIR/
