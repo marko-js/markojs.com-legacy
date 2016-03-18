@@ -20,6 +20,17 @@ require('lasso/node-require-no-op').enable('.css', '.less');
 
 var isProduction = (process.env.NODE_ENV === 'production');
 
+var lassoRequireConfig = {};
+
+if (isProduction) {
+    lassoRequireConfig = {
+        babel: {
+            extensions: ['js', 'es6'],
+            presets: [require('./babel-preset')]
+        }
+    };
+}
+
 lasso.configure({
     plugins: [
         // Auto compile Marko template files
@@ -29,7 +40,12 @@ lasso.configure({
         'lasso-less',
 
         // Allow CSON to be compiled to JavaScript
-        'lasso-cson'
+        'lasso-cson',
+
+        {
+            plugin: 'lasso-require',
+            config: lassoRequireConfig
+        }
     ],
 
     // Directory where generated JS and CSS bundles are written
