@@ -1,6 +1,6 @@
 img src="foo.png" alt=data.title
-div class=(data.active ? "tab-active" : "")
+div class=(data.active ? "tab-active" : "tab-inactive")
     - Hello
-div class=(data.active !== true ? "tab-inactive" : "")
+div class=(data.active && "tab-active")
     - Hello
-input type="checkbox" checked=data.checked disabled=data.disabled
+input type="checkbox" checked=true disabled=data.disabled

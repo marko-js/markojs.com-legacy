@@ -1,6 +1,9 @@
-div
-    attr name="class" value="test-class"
-    attr name="title"
-        for(name in data.names)
-            - Hello ${name}!
-    - Hello World!
+a href=data.url target="_blank"
+    - Marko
+div class=['foo', null, 'bar']
+    - Class name from array list
+span class={foo: true, bar: false}
+    - Class name from object
+button [ style={ color: 'red', font-size: '14px'}
+    type="button" ]
+    - Click me

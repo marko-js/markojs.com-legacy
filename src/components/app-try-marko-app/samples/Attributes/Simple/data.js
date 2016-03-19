@@ -1,4 +1,3 @@
 {
-    active: true,
-    names: ['Frank', 'John', 'Jane']
+    url: 'http://markojs.com/'
 }
