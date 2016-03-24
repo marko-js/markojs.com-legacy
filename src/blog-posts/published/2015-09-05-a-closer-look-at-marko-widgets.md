@@ -121,7 +121,7 @@ We believe that to properly use a tool, you need to be able to fully understand 
 
 ## How does server-side rendering work?
 
-When rendered on the server, all UI components are rendered using their associated Marko template. All HTML output is written to the HTTP response stream and the output HTML will include some _extra information_ used by Marko Widgets in the browser. The extra information is added by the Marko Widgets taglib and it is used to efficiently create widgets when the DOM is ready. That information is encoded in HTML elements using `data-*` attributes and there is one extra DOM element that encodes the IDs of all of the rendered UI components as shown in the sample HTML output below:
+When rendered on the server, all UI components are rendered using their associated Marko template. All HTML output is written to the HTTP response stream and the output HTML will include some _extra information_ used by Marko Widgets in the browser. The extra information is added by the Marko Widgets custom [`<init-widgets/>`](http://markojs.com/docs/marko-widgets/get-started/#server-side-rendering) tag and it is used to efficiently create widgets when the DOM is ready. That information is encoded in HTML elements using `data-*` attributes and there is one extra DOM element that encodes the IDs of all of the rendered UI components as shown in the sample HTML output below:
 
 ```html
 <!DOCTYPE html>
@@ -145,7 +145,10 @@ When rendered on the server, all UI components are rendered using their associat
         data-widget="/src/components/foo-bar">
         Foobar
     </div>
+
+    <!-- Output of the <init-widgets/> tag: -->
     <span id="markoWidgets" data-ids="w0,w1" style="display:none;"></span>
+
     <script src="/static/bundle.js"></script>
 </body>
 </html>
