@@ -4,17 +4,27 @@ require('./style.css');
 var removeClass = require('dom-classes').remove;
 var addClass = require('dom-classes').add;
 
-var codeMirrorFactory;
+var CodeMirror;
 
 var html = require('html');
 
 if (typeof window !== 'undefined') {
-    codeMirrorFactory = require('codemirror');
-    var codemirrorAtomModes = require('codemirror-atom-modes');
-
-    codemirrorAtomModes.registerGrammar(require('src/atom-grammars/css.cson'), codeMirrorFactory);
-    codemirrorAtomModes.registerGrammar(require('src/atom-grammars/javascript.cson'), codeMirrorFactory);
-    codemirrorAtomModes.registerGrammar(require('src/atom-grammars/marko.cson'), codeMirrorFactory);
+    CodeMirror = require('codemirror');
+    require('codemirror-atom-modes').registerGrammars([
+            require('src/atom-grammars/css.cson'),
+            require('src/atom-grammars/javascript.cson'),
+            {
+                grammar: require('src/atom-grammars/marko.cson'),
+                options: {
+                    scopeTranslations: {
+                        'meta.section.marko-placeholder': 'strong',
+                        'meta.section.marko-attribute': 'strong',
+                        'support.function.marko-tag': 'strong tag',
+                        'support.function.marko-attribute': 'strong attribute'
+                    }
+                }
+            }
+        ], CodeMirror);
 }
 
 module.exports = require('marko-widgets').defineComponent({
@@ -78,7 +88,8 @@ module.exports = require('marko-widgets').defineComponent({
             codeMirrorConfig.theme = widgetConfig.theme;
         }
 
-        this.codeMirror = codeMirrorFactory(this.el, codeMirrorConfig);
+        /*jshint newcap: false */
+        this.codeMirror = CodeMirror(this.el, codeMirrorConfig);
 
         this.codeMirror.on('change', function(editor) {
             self.emit('change', {
