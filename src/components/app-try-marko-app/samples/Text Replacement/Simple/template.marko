@@ -12,7 +12,4 @@ p
     ---
 <!-- Variables/expressions inside JavaScript strings: -->
 p
-    - ${("Hello "+data.name).toUpperCase()}
-<!-- Mind blown: -->
-p
-    - ${("Hello and "+('Welcome '+data.name+'!')).toUpperCase()}
+    - ${"Hello ${data.name}".toUpperCase()}

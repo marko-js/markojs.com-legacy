@@ -1,4 +1,4 @@
 h1
     - User Info
-async-fragment data-provider=data.userDataProvider var="user"
+await(user from data.userDataProvider)
     - Hello ${user.firstName} ${user.lastName}! You are ${user.age} years old.

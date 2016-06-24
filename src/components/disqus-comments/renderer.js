@@ -1,13 +1,5 @@
 var template = require('./template.marko');
 
-exports.tag = {
-    attributes: {
-        'disqus-shortname': 'string',
-        'page-id': 'string',
-        'page-title': 'string'
-    }
-};
-
 module.exports = function render(input, context) {
     var vars = {
         disqus_shortname: input.disqusShortname,
