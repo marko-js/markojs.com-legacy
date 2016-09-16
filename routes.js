@@ -99,6 +99,7 @@ exports.loadRoutes = function() {
             addDocsPage('/docs/marko-widgets/get-started', 'marko-widgets', 'get-started');
             addDocsPage('/docs/marko-widgets/component-lifecycle', 'marko-widgets', 'component-lifecycle');
             addDocsPage('/docs/marko-widgets/javascript-api', 'marko-widgets', 'javascript-api');
+            addDocsPage('/docs/marko-widgets/taglib-api', 'marko-widgets', 'taglib-api');
             addDocsPage('/docs/marko-widgets/faq', 'marko-widgets', 'faq');
             addDocsPage('/docs/marko-widgets/additional-resources', 'marko-widgets', 'additional-resources');
 
