@@ -17,6 +17,7 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
                     img src="/images/logo-large.png" alt="Marko" class="hero-img"
                     h2
                         - A high performance templating engine and UI component building library from eBay
+                    iframe src="https://ghbtns.com/github-btn.html?user=marko-js&repo=marko&type=star&count=true&size=large" frameborder="0" scrolling="0" width="160px" height="30px"
         div class="container"
             main
                 section class="marketing"
@@ -82,7 +83,7 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
                                         Hello ${data.name}!
                                     </h1>
 
-                                    <ul if(notEmpty(data.colors))>
+                                    <ul if(data.colors.length)>
                                         <li for(color in data.colors)>
                                             ${color}
                                         </li>
@@ -106,7 +107,7 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
                                     title - Marko Templating Engine
                                 body
                                     h1 - Hello ${data.name}!
-                                    ul if(notEmpty(data.colors))
+                                    ul if(data.colors.length)
                                         li for(color in data.colors)
                                             ${color}
                                     div else
@@ -128,7 +129,7 @@ layout-use("src/layouts/default/template.marko") site=site active-section="home"
                                 <h1>
                                     Hello ${data.name}!
                                 </h1>
-                                ul if(notEmpty(data.colors))
+                                ul if(data.colors.length)
                                     li for(color in data.colors)
                                         ${color}
                                 div else
