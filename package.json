@@ -28,7 +28,7 @@
     "marko-prettyprint": "^1.0.5",
     "marko-widgets": "^6.0.2",
     "mkdirp": "^0.5.1",
-    "modify-babel-preset": "^3.2.0",
+    "modify-babel-preset": "^1.2.0",
     "moment": "^2.10.6",
     "native-promise-only": "^0.8.1",
     "raptor-async": "^1.1.2",
@@ -36,6 +36,11 @@
     "raptor-util": "^3.1.0",
     "serve-static": "^1.10.0",
     "shortstop": "^1.0.1"
+  },
+  "greenkeeper": {
+    "ignore": [
+      "modify-babel-preset"
+    ]
   },
   "scripts": {
     "start": "node server.js",
