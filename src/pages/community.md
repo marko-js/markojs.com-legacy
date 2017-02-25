@@ -9,6 +9,7 @@ Community
 It is easy to get immediate help from other Marko developers and users in the Gitter chat rooms.
 
 - [Marko on Gitter](https://gitter.im/marko-js/marko)
+- [Marko on YouTube](https://www.youtube.com/channel/UC1wouaQKl3Qw-aOOo1NmQbA)
 - [Marko Widgets on Gitter](https://gitter.im/marko-js/marko-widgets)
 
 Also, feel free to ask a question or file a bug report by creating a Github issue on the [Marko Github issues page](https://github.com/marko-js/marko/issues) or the [Marko Widgets Github issues page](https://github.com/marko-js/marko-widgets/issues).
