@@ -34,7 +34,7 @@
     "raptor-async": "^1.1.2",
     "raptor-polyfill": "^1.0.2",
     "raptor-util": "^3.1.0",
-    "serve-static": "^1.10.0",
+    "serve-static": "^1.12.2",
     "shortstop": "^1.0.1"
   },
   "greenkeeper": {
