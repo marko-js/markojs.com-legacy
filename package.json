@@ -39,7 +39,8 @@
   },
   "greenkeeper": {
     "ignore": [
-      "modify-babel-preset"
+      "modify-babel-preset",
+      "marko"
     ]
   },
   "scripts": {
