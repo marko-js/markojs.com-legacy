@@ -17,7 +17,7 @@
     "front-matter": "^2.1.1",
     "highlights": "^2.0.1",
     "html": "1.0.0",
-    "http-server": "^0.9.0",
+    "http-server": "^0.10.0",
     "lasso": "^2.2.0-beta.3",
     "lasso-cson": "^1.0.0",
     "lasso-less": "^2.1.2",
