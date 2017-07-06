@@ -2,6 +2,6 @@ module.exports = function(input, out) {
     var site = input.site;
     var feed = site.feed;
 
-    var atomXml = feed.render('atom-1.0');
+    var atomXml = feed.atom1();
     out.end(atomXml);
 }
