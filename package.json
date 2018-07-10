@@ -22,7 +22,7 @@
     "lasso-cson": "^1.0.0",
     "lasso-less": "^2.1.2",
     "lasso-marko": "^2.0.4",
-    "less": "^2.5.3",
+    "less": "^3.6.0",
     "marked": "^0.3.5",
     "marko": "^3.0.7",
     "marko-prettyprint": "^1.0.5",
